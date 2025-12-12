@@ -1,0 +1,154 @@
+version: "3.8"
+
+services:
+  # =============================================================================
+  # FINANCE AI ORCHESTRATOR - REST API
+  # =============================================================================
+
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: finance-api
+    ports:
+      - "8000:8000"
+    environment:
+      - KESTRA_HOST=http://kestra:8080
+      - OLLAMA_HOST=http://ollama:11434
+      - DATA_PATH=/app/data
+    volumes:
+      - ./data:/app/data:ro
+    depends_on:
+      - kestra
+      - ollama
+    networks:
+      - kestra-net
+    restart: unless-stopped
+
+  # =============================================================================
+  # KESTRA ORCHESTRATION ENGINE
+  # =============================================================================
+
+  kestra:
+    image: kestra/kestra:latest
+    container_name: kestra
+    pull_policy: always
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        /app/kestra server standalone --worker-thread=128
+    volumes:
+      - kestra-data:/app/storage
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./flows:/app/flows
+      - ./data:/app/data
+    environment:
+      KESTRA_CONFIGURATION: |
+        datasources:
+          postgres:
+            url: jdbc:postgresql://postgres:5432/kestra
+            driverClassName: org.postgresql.Driver
+            username: kestra
+            password: k3str4
+        kestra:
+          server:
+            basicAuth:
+              enabled: false
+          repository:
+            type: postgres
+          storage:
+            type: local
+            local:
+              basePath: /app/storage
+          queue:
+            type: postgres
+          tasks:
+            tmpDir:
+              path: /tmp/kestra-wd/tmp
+          url: http://localhost:8080/
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+    depends_on:
+      postgres:
+        condition: service_started
+      ollama:
+        condition: service_started
+    networks:
+      - kestra-net
+
+  # =============================================================================
+  # POSTGRESQL DATABASE
+  # =============================================================================
+
+  postgres:
+    image: postgres:15
+    container_name: kestra-postgres
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: kestra
+      POSTGRES_USER: kestra
+      POSTGRES_PASSWORD: k3str4
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d kestra -U kestra"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+    networks:
+      - kestra-net
+
+  # =============================================================================
+  # OLLAMA LOCAL LLM
+  # =============================================================================
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    volumes:
+      - ollama-data:/root/.ollama
+    ports:
+      - "11434:11434"
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    # Uncomment below if you have NVIDIA GPU
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+    networks:
+      - kestra-net
+
+  # =============================================================================
+  # OLLAMA MODEL PULLER (One-time setup)
+  # =============================================================================
+
+  ollama-pull:
+    image: curlimages/curl:latest
+    container_name: ollama-pull
+    depends_on:
+      - ollama
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        echo "Waiting for Ollama to start..."
+        sleep 10
+        echo "Pulling llama3.2 model (this may take a while)..."
+        curl -X POST http://ollama:11434/api/pull -d '{"name": "llama3.2:3b"}'
+        echo "Model pulled successfully!"
+    networks:
+      - kestra-net
+
+volumes:
+  kestra-data:
+  postgres-data:
+  ollama-data:
+
+networks:
+  kestra-net:
+    driver: bridge

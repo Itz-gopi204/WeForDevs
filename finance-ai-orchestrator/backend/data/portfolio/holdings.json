@@ -1,0 +1,141 @@
+{
+  "portfolio_id": "CORP-MAIN-001",
+  "portfolio_name": "Corporate Investment Portfolio",
+  "as_of_date": "2024-12-11",
+  "total_aum": 15750000.00,
+  "currency": "USD",
+  "holdings": [
+    {
+      "ticker": "AAPL",
+      "name": "Apple Inc.",
+      "asset_class": "Equity",
+      "sector": "Technology",
+      "quantity": 5000,
+      "avg_cost": 145.50,
+      "current_price": 193.25,
+      "market_value": 966250.00,
+      "unrealized_pnl": 238750.00,
+      "weight": 6.14,
+      "daily_change_pct": 1.25
+    },
+    {
+      "ticker": "MSFT",
+      "name": "Microsoft Corporation",
+      "asset_class": "Equity",
+      "sector": "Technology",
+      "quantity": 4200,
+      "avg_cost": 285.00,
+      "current_price": 378.50,
+      "market_value": 1589700.00,
+      "unrealized_pnl": 392700.00,
+      "weight": 10.09,
+      "daily_change_pct": 0.85
+    },
+    {
+      "ticker": "JPM",
+      "name": "JPMorgan Chase & Co.",
+      "asset_class": "Equity",
+      "sector": "Financials",
+      "quantity": 3500,
+      "avg_cost": 142.00,
+      "current_price": 198.75,
+      "market_value": 695625.00,
+      "unrealized_pnl": 198625.00,
+      "weight": 4.42,
+      "daily_change_pct": -0.45
+    },
+    {
+      "ticker": "XOM",
+      "name": "Exxon Mobil Corporation",
+      "asset_class": "Equity",
+      "sector": "Energy",
+      "quantity": 6000,
+      "avg_cost": 95.00,
+      "current_price": 104.20,
+      "market_value": 625200.00,
+      "unrealized_pnl": 55200.00,
+      "weight": 3.97,
+      "daily_change_pct": -2.15
+    },
+    {
+      "ticker": "JNJ",
+      "name": "Johnson & Johnson",
+      "asset_class": "Equity",
+      "sector": "Healthcare",
+      "quantity": 4000,
+      "avg_cost": 160.00,
+      "current_price": 155.30,
+      "market_value": 621200.00,
+      "unrealized_pnl": -18800.00,
+      "weight": 3.94,
+      "daily_change_pct": -0.75
+    },
+    {
+      "ticker": "US10Y",
+      "name": "US Treasury 10Y Bond",
+      "asset_class": "Fixed Income",
+      "sector": "Government",
+      "quantity": 5000000,
+      "avg_cost": 98.50,
+      "current_price": 96.25,
+      "market_value": 4812500.00,
+      "unrealized_pnl": -112500.00,
+      "weight": 30.56,
+      "daily_change_pct": -0.32
+    },
+    {
+      "ticker": "LQD",
+      "name": "iShares Investment Grade Corp Bond ETF",
+      "asset_class": "Fixed Income",
+      "sector": "Corporate",
+      "quantity": 25000,
+      "avg_cost": 108.00,
+      "current_price": 110.50,
+      "market_value": 2762500.00,
+      "unrealized_pnl": 62500.00,
+      "weight": 17.54,
+      "daily_change_pct": 0.15
+    },
+    {
+      "ticker": "GLD",
+      "name": "SPDR Gold Shares",
+      "asset_class": "Commodities",
+      "sector": "Precious Metals",
+      "quantity": 8000,
+      "avg_cost": 175.00,
+      "current_price": 192.80,
+      "market_value": 1542400.00,
+      "unrealized_pnl": 142400.00,
+      "weight": 9.79,
+      "daily_change_pct": 0.65
+    },
+    {
+      "ticker": "CASH",
+      "name": "Cash & Equivalents",
+      "asset_class": "Cash",
+      "sector": "Money Market",
+      "quantity": 1,
+      "avg_cost": 2134625.00,
+      "current_price": 2134625.00,
+      "market_value": 2134625.00,
+      "unrealized_pnl": 0.00,
+      "weight": 13.55,
+      "daily_change_pct": 0.00
+    }
+  ],
+  "allocation_summary": {
+    "Equity": 35.56,
+    "Fixed Income": 48.10,
+    "Commodities": 9.79,
+    "Cash": 13.55
+  },
+  "sector_concentration": {
+    "Technology": 16.23,
+    "Financials": 4.42,
+    "Energy": 3.97,
+    "Healthcare": 3.94,
+    "Government": 30.56,
+    "Corporate": 17.54,
+    "Precious Metals": 9.79
+  }
+}

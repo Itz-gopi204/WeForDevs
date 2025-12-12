@@ -1,0 +1,320 @@
+id: portfolio-advisor
+namespace: finance.agents
+description: |
+  Portfolio Risk Advisor - Analyzes portfolio holdings, performance, and VaR metrics.
+  Generates risk assessments and triggers rebalancing alerts when thresholds exceeded.
+
+labels:
+  category: portfolio
+  priority: high
+
+inputs:
+  - id: var_threshold
+    type: FLOAT
+    defaults: 200000
+    description: VaR threshold for triggering risk alerts
+
+  - id: risk_score_threshold
+    type: INT
+    defaults: 75
+    description: Risk score threshold for alerts
+
+tasks:
+  # Task 1: Load Portfolio Holdings
+  - id: load_holdings
+    type: io.kestra.plugin.scripts.python.Script
+    description: Load current portfolio holdings and calculate metrics
+    containerImage: python:3.11-slim
+    script: |
+      import json
+
+      with open('/app/data/portfolio/holdings.json', 'r') as f:
+          holdings_data = json.load(f)
+
+      # Calculate key metrics
+      holdings = holdings_data.get('holdings', [])
+
+      total_pnl = sum(h.get('unrealized_pnl', 0) for h in holdings)
+      winners = [h for h in holdings if h.get('unrealized_pnl', 0) > 0]
+      losers = [h for h in holdings if h.get('unrealized_pnl', 0) < 0]
+
+      # Concentration risk
+      max_weight = max(h.get('weight', 0) for h in holdings)
+      concentrated_positions = [h for h in holdings if h.get('weight', 0) > 15]
+
+      summary = {
+          'portfolio_id': holdings_data.get('portfolio_id'),
+          'total_aum': holdings_data.get('total_aum'),
+          'total_unrealized_pnl': total_pnl,
+          'winners_count': len(winners),
+          'losers_count': len(losers),
+          'max_position_weight': max_weight,
+          'concentrated_positions': [p.get('ticker') for p in concentrated_positions],
+          'allocation': holdings_data.get('allocation_summary'),
+          'holdings': holdings
+      }
+
+      print(json.dumps(summary, indent=2))
+
+  # Task 2: Load VaR Metrics
+  - id: load_var_metrics
+    type: io.kestra.plugin.scripts.python.Script
+    description: Load Value-at-Risk and risk metrics
+    containerImage: python:3.11-slim
+    beforeCommands:
+      - pip install pandas
+    script: |
+      import pandas as pd
+      import json
+
+      df = pd.read_csv('/app/data/portfolio/var_metrics.csv')
+
+      # Get latest metrics
+      latest = df.iloc[0].to_dict()
+
+      # Check trend (comparing to 7 days ago)
+      oldest = df.iloc[-1].to_dict() if len(df) > 1 else latest
+
+      var_trend = 'INCREASING' if latest['var_95_1d'] > oldest['var_95_1d'] else 'DECREASING'
+      risk_trend = 'INCREASING' if latest['risk_score'] > oldest['risk_score'] else 'DECREASING'
+
+      metrics = {
+          'current': {
+              'var_95_1d': latest['var_95_1d'],
+              'var_99_1d': latest['var_99_1d'],
+              'cvar_95': latest['cvar_95'],
+              'max_drawdown': latest['max_drawdown'],
+              'sharpe_ratio': latest['sharpe_ratio'],
+              'volatility_30d': latest['volatility_30d'],
+              'risk_score': latest['risk_score']
+          },
+          'var_trend': var_trend,
+          'risk_trend': risk_trend,
+          'var_breach': latest['var_95_1d'] > {{ inputs.var_threshold }},
+          'risk_breach': latest['risk_score'] > {{ inputs.risk_score_threshold }}
+      }
+
+      print(json.dumps(metrics, indent=2))
+
+  # Task 3: Load Performance Data
+  - id: load_performance
+    type: io.kestra.plugin.scripts.python.Script
+    description: Load portfolio performance and attribution
+    containerImage: python:3.11-slim
+    script: |
+      import json
+
+      with open('/app/data/portfolio/performance.json', 'r') as f:
+          perf_data = json.load(f)
+
+      performance = perf_data.get('performance', {})
+      attribution = perf_data.get('attribution', {})
+
+      summary = {
+          'daily_return': performance.get('daily', {}).get('return_pct'),
+          'mtd_return': performance.get('mtd', {}).get('return_pct'),
+          'ytd_return': performance.get('ytd', {}).get('return_pct'),
+          'ytd_alpha': performance.get('ytd', {}).get('alpha'),
+          'attribution': attribution,
+          'top_contributors': perf_data.get('top_contributors', []),
+          'top_detractors': perf_data.get('top_detractors', []),
+          'underperforming_benchmark': performance.get('ytd', {}).get('alpha', 0) < 0
+      }
+
+      print(json.dumps(summary, indent=2))
+
+  # Task 4: Load Market Context
+  - id: load_market_context
+    type: io.kestra.plugin.scripts.python.Script
+    description: Load relevant market news for context
+    containerImage: python:3.11-slim
+    script: |
+      import json
+
+      with open('/app/data/market/news_feed.json', 'r') as f:
+          news_data = json.load(f)
+
+      # Filter for high relevance articles
+      articles = news_data.get('articles', [])
+      relevant = [a for a in articles if a.get('relevance_score', 0) > 0.8]
+
+      context = {
+          'market_sentiment': news_data.get('market_summary', {}).get('overall_sentiment'),
+          'key_themes': news_data.get('market_summary', {}).get('key_themes', []),
+          'risk_factors': news_data.get('market_summary', {}).get('risk_factors', []),
+          'relevant_news': [{
+              'headline': a.get('headline'),
+              'sentiment': a.get('sentiment'),
+              'impact': a.get('impact_assessment')
+          } for a in relevant[:5]]
+      }
+
+      print(json.dumps(context, indent=2))
+
+  # Task 5: AI Portfolio Analysis
+  - id: analyze_portfolio
+    type: io.kestra.plugin.scripts.python.Script
+    description: Generate AI-powered portfolio analysis
+    containerImage: python:3.11-slim
+    beforeCommands:
+      - pip install requests
+    script: |
+      import requests
+      import json
+
+      context = """
+      PORTFOLIO ANALYSIS DATA - 2024-12-11:
+
+      PORTFOLIO OVERVIEW:
+      - Total AUM: $15.75M
+      - Asset Allocation: Equity 35.6%, Fixed Income 48.1%, Commodities 9.8%, Cash 13.5%
+      - Total Unrealized P&L: +$958,875
+
+      RISK METRICS (Current):
+      - VaR (95%, 1-day): $157,500
+      - CVaR (95%): $198,450
+      - Risk Score: 72/100 (ELEVATED)
+      - 30-day Volatility: 12.45%
+      - Sharpe Ratio: 1.85
+      - Max Drawdown: -4.25%
+
+      PERFORMANCE:
+      - Daily: +0.35% (Benchmark: +0.42%) - Underperforming
+      - MTD: +2.85% (Benchmark: +3.10%) - Underperforming
+      - YTD: +12.35% (Benchmark: +14.80%) - Underperforming by 2.45%
+
+      TOP CONTRIBUTORS: MSFT (+2.15%), AAPL (+1.85%), GLD (+0.95%)
+      TOP DETRACTORS: US10Y (-0.72%), JNJ (-0.45%), XOM (-0.38%)
+
+      CONCENTRATION RISK:
+      - US10Y (Government Bonds): 30.56% - HIGH CONCENTRATION
+      - Technology sector: 16.23%
+
+      MARKET CONTEXT:
+      - Fed signaling potential rate cuts in Q1 2025 (positive for bonds)
+      - Tech rally continues on AI optimism
+      - Banking sector concerns on CRE exposure
+      - Oil prices surging on OPEC+ cuts
+
+      KEY RISKS:
+      - Fixed income underperforming due to rate volatility
+      - Benchmark underperformance persistent
+      - High concentration in government bonds
+      """
+
+      prompt = f"""You are a senior portfolio manager and risk analyst. Analyze this portfolio data and provide:
+
+      1. EXECUTIVE SUMMARY (2-3 sentences on overall health)
+      2. RISK ASSESSMENT (key risks identified, severity)
+      3. PERFORMANCE ATTRIBUTION (why underperforming benchmark)
+      4. RECOMMENDED ACTIONS (specific, actionable steps)
+      5. REBALANCING SUGGESTIONS (if any needed)
+      6. OVERALL RISK RATING (1-10, with justification)
+
+      {context}
+
+      Be specific and actionable. This report goes to the CIO."""
+
+      try:
+          response = requests.post(
+              'http://ollama:11434/api/generate',
+              json={
+                  'model': 'llama3.2:3b',
+                  'prompt': prompt,
+                  'stream': False,
+                  'options': {'temperature': 0.3, 'num_predict': 1200}
+              },
+              timeout=120
+          )
+
+          if response.status_code == 200:
+              result = response.json()
+              analysis = result.get('response', 'No response generated')
+          else:
+              analysis = f"Ollama error: {response.status_code}"
+      except Exception as e:
+          analysis = f"""
+          FALLBACK PORTFOLIO ANALYSIS:
+
+          EXECUTIVE SUMMARY:
+          Portfolio shows solid absolute returns (+12.35% YTD) but persistent benchmark underperformance
+          of 2.45%. Risk metrics elevated at 72/100, primarily due to fixed income volatility and
+          high concentration in government bonds.
+
+          KEY RISKS:
+          - Duration risk from 30%+ government bond allocation
+          - Security selection drag (-1.10% attribution)
+          - Technology concentration in equity sleeve
+
+          RECOMMENDED ACTIONS:
+          1. Review government bond duration - consider reducing if rate outlook improves
+          2. Investigate security selection process - persistent negative contribution
+          3. Consider tactical rebalancing to reduce US10Y concentration
+          4. Add to underweight sectors showing momentum
+
+          RISK RATING: 7/10 - Elevated but manageable
+          """
+
+      output = {
+          'analysis': analysis,
+          'risk_rating': 7,
+          'rebalancing_recommended': True,
+          'priority_actions': [
+              'Review bond duration positioning',
+              'Address benchmark underperformance',
+              'Consider reducing US10Y concentration'
+          ],
+          'generated_at': '2024-12-11T16:00:00Z'
+      }
+
+      print(json.dumps(output, indent=2))
+
+  # Task 6: Determine Actions
+  - id: determine_actions
+    type: io.kestra.plugin.scripts.python.Script
+    description: Evaluate if automated actions should be triggered
+    containerImage: python:3.11-slim
+    script: |
+      import json
+
+      # Simulated metrics (in real flow, use task outputs)
+      risk_score = 72
+      var_95 = 157500
+      var_threshold = {{ inputs.var_threshold }}
+      risk_threshold = {{ inputs.risk_score_threshold }}
+
+      actions = {
+          'send_alert': risk_score >= risk_threshold or var_95 >= var_threshold,
+          'trigger_rebalancing_review': risk_score >= 80,
+          'escalate_to_cio': risk_score >= 85,
+          'alert_details': {
+              'risk_score': risk_score,
+              'var_95': var_95,
+              'breaches': []
+          }
+      }
+
+      if var_95 >= var_threshold:
+          actions['alert_details']['breaches'].append('VAR_THRESHOLD_EXCEEDED')
+      if risk_score >= risk_threshold:
+          actions['alert_details']['breaches'].append('RISK_SCORE_ELEVATED')
+
+      print(json.dumps(actions, indent=2))
+
+outputs:
+  - id: portfolio_analysis
+    type: STRING
+    value: "{{ outputs.analyze_portfolio.vars.analysis }}"
+
+  - id: risk_rating
+    type: INT
+    value: "{{ outputs.analyze_portfolio.vars.risk_rating }}"
+
+  - id: actions_required
+    type: BOOLEAN
+    value: "{{ outputs.determine_actions.vars.send_alert }}"
+
+triggers:
+  - id: daily_schedule
+    type: io.kestra.plugin.core.trigger.Schedule
+    cron: "0 7 * * *"

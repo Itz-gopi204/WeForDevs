@@ -1,0 +1,310 @@
+id: compliance-agent
+namespace: finance.agents
+description: |
+  Compliance Summary Agent - Monitors AML alerts, audit logs, and KYC status.
+  Generates compliance health reports and triggers escalations for critical issues.
+
+labels:
+  category: compliance
+  priority: critical
+
+inputs:
+  - id: high_priority_threshold
+    type: INT
+    defaults: 2
+    description: Number of high-priority alerts to trigger escalation
+
+  - id: critical_event_types
+    type: STRING
+    defaults: "UNAUTHORIZED_ACCESS,SANCTIONS_MATCH,STRUCTURING_SUSPECTED"
+    description: Event types that require immediate escalation
+
+tasks:
+  # Task 1: Load AML Alerts
+  - id: load_aml_alerts
+    type: io.kestra.plugin.scripts.python.Script
+    description: Load and analyze AML alerts
+    containerImage: python:3.11-slim
+    script: |
+      import json
+
+      with open('/app/data/compliance/aml_alerts.json', 'r') as f:
+          aml_data = json.load(f)
+
+      summary = aml_data.get('summary', {})
+      alerts = aml_data.get('alerts', [])
+      deadlines = aml_data.get('regulatory_deadlines', [])
+
+      # Identify critical alerts
+      critical_alerts = [a for a in alerts if a.get('priority') == 'HIGH' and a.get('status') in ['PENDING_REVIEW', 'UNDER_INVESTIGATION']]
+
+      # Sanctions matches are always critical
+      sanctions_alerts = [a for a in alerts if a.get('type') == 'SANCTIONS_MATCH']
+
+      # Upcoming deadlines
+      pending_deadlines = [d for d in deadlines if d.get('status') != 'COMPLETED']
+
+      output = {
+          'summary': summary,
+          'critical_alerts_count': len(critical_alerts),
+          'critical_alerts': critical_alerts,
+          'sanctions_alerts': sanctions_alerts,
+          'pending_deadlines': pending_deadlines,
+          'requires_immediate_action': len(sanctions_alerts) > 0 or len(critical_alerts) >= {{ inputs.high_priority_threshold }}
+      }
+
+      print(json.dumps(output, indent=2))
+
+  # Task 2: Analyze Audit Logs
+  - id: analyze_audit_logs
+    type: io.kestra.plugin.scripts.python.Script
+    description: Analyze audit logs for suspicious activity
+    containerImage: python:3.11-slim
+    beforeCommands:
+      - pip install pandas
+    script: |
+      import pandas as pd
+      import json
+
+      df = pd.read_csv('/app/data/compliance/audit_logs.csv')
+
+      critical_types = "{{ inputs.critical_event_types }}".split(',')
+
+      # Find critical events
+      critical_events = df[df['risk_level'].isin(['CRITICAL', 'HIGH'])].to_dict('records')
+
+      # Failed logins
+      failed_logins = df[df['event_type'] == 'FAILED_LOGIN'].to_dict('records')
+
+      # Unauthorized access attempts
+      unauthorized = df[df['event_type'] == 'UNAUTHORIZED_ACCESS'].to_dict('records')
+
+      # Bulk data exports (potential data exfiltration)
+      bulk_exports = df[df['event_type'] == 'BULK_DOWNLOAD'].to_dict('records')
+
+      # Config changes (important for audit trail)
+      config_changes = df[df['event_type'] == 'CONFIG_CHANGE'].to_dict('records')
+
+      output = {
+          'total_events': len(df),
+          'critical_events_count': len(critical_events),
+          'critical_events': critical_events,
+          'failed_login_attempts': len(failed_logins),
+          'unauthorized_access_attempts': unauthorized,
+          'bulk_data_exports': bulk_exports,
+          'config_changes': config_changes,
+          'security_concerns': len(unauthorized) > 0 or len(failed_logins) > 2
+      }
+
+      print(json.dumps(output, default=str, indent=2))
+
+  # Task 3: Check KYC Status
+  - id: check_kyc_status
+    type: io.kestra.plugin.scripts.python.Script
+    description: Review KYC compliance status
+    containerImage: python:3.11-slim
+    script: |
+      import json
+
+      with open('/app/data/compliance/kyc_status.json', 'r') as f:
+          kyc_data = json.load(f)
+
+      summary = kyc_data.get('summary', {})
+      expiring = kyc_data.get('expiring_soon', [])
+      high_risk = kyc_data.get('high_risk_clients', [])
+
+      # Urgent expirations (within 14 days)
+      urgent_expirations = [c for c in expiring if c.get('days_until_expiry', 999) <= 14]
+
+      output = {
+          'compliance_rate': round(summary.get('fully_compliant', 0) / summary.get('total_clients', 1) * 100, 1),
+          'pending_reviews': summary.get('pending_review', 0),
+          'expired_docs': summary.get('expired_documentation', 0),
+          'high_risk_clients': len(high_risk),
+          'urgent_expirations': urgent_expirations,
+          'expiring_soon': expiring,
+          'kyc_action_required': len(urgent_expirations) > 0 or summary.get('expired_documentation', 0) > 5
+      }
+
+      print(json.dumps(output, indent=2))
+
+  # Task 4: AI Compliance Summary
+  - id: generate_compliance_summary
+    type: io.kestra.plugin.scripts.python.Script
+    description: Generate AI-powered compliance summary
+    containerImage: python:3.11-slim
+    beforeCommands:
+      - pip install requests
+    script: |
+      import requests
+      import json
+
+      context = """
+      COMPLIANCE STATUS REPORT - 2024-12-11:
+
+      AML ALERTS SUMMARY:
+      - Total Active Alerts: 15
+      - High Priority: 3 (2 pending review, 1 under investigation)
+      - Medium Priority: 7
+      - Low Priority: 5
+
+      CRITICAL ALERTS REQUIRING IMMEDIATE ATTENTION:
+      1. AML-2024-1203: SANCTIONS_MATCH - Eastern Shipping Co.
+         - Potential OFAC match, €750K transaction
+         - Risk Score: 95/100
+         - ACTION: Freeze transaction pending verification
+
+      2. AML-2024-1205: UNUSUAL_TRANSACTION_PATTERN - Redacted Corp Ltd.
+         - Multiple large wires to Cayman Islands/Cyprus
+         - Amount: $2.5M
+         - Risk Score: 92/100
+         - ACTION: Immediate escalation
+
+      3. AML-2024-1204: STRUCTURING_SUSPECTED - Global Trade Partners
+         - Deposits just below reporting threshold
+         - Risk Score: 88/100
+         - ACTION: Prepare SAR filing
+
+      REGULATORY DEADLINES:
+      - SAR Filing: Due 2024-12-15 (4 days)
+      - CTR Filing: Due 2024-12-13 (2 days) - IN PROGRESS
+
+      AUDIT LOG ANALYSIS:
+      - Critical Events: 2
+      - Unauthorized Access Attempt: USR-041 tried to access executive compensation
+      - Multiple failed logins: USR-033 (account locked)
+      - Bulk Data Export: USR-012 exported 30 days transaction history
+
+      KYC STATUS:
+      - Overall Compliance Rate: 80.8%
+      - Pending Reviews: 28 clients
+      - Expired Documentation: 12 clients
+      - High-Risk Clients: 7 under enhanced monitoring
+
+      URGENT KYC EXPIRATIONS (Next 14 days):
+      - CL-12345 Alpha Investments Ltd: Expires 2024-12-20 (9 days)
+      - CL-67890 Global Finance Corp (HIGH RISK): Expires 2024-12-25 (14 days)
+      """
+
+      prompt = f"""You are the Chief Compliance Officer reviewing the daily compliance report.
+      Analyze this data and provide:
+
+      1. COMPLIANCE HEALTH SCORE (0-100, with RAG status)
+      2. CRITICAL ITEMS REQUIRING IMMEDIATE ACTION (with deadlines)
+      3. REGULATORY RISK ASSESSMENT
+      4. RECOMMENDED ESCALATIONS
+      5. 24-HOUR ACTION PLAN
+
+      {context}
+
+      Be specific about who needs to do what and by when. Flag any potential regulatory violations."""
+
+      try:
+          response = requests.post(
+              'http://ollama:11434/api/generate',
+              json={
+                  'model': 'llama3.2:3b',
+                  'prompt': prompt,
+                  'stream': False,
+                  'options': {'temperature': 0.2, 'num_predict': 1200}
+              },
+              timeout=120
+          )
+
+          if response.status_code == 200:
+              result = response.json()
+              summary = result.get('response', 'No response')
+          else:
+              summary = f"Ollama error: {response.status_code}"
+      except Exception as e:
+          summary = f"""
+          COMPLIANCE SUMMARY (Fallback):
+
+          HEALTH SCORE: 62/100 (AMBER - Action Required)
+
+          CRITICAL ITEMS - IMMEDIATE ACTION:
+          1. [URGENT] Sanctions match AML-2024-1203 - Verify and freeze within 4 hours
+          2. [URGENT] CTR filing due in 2 days - Ensure completion
+          3. [HIGH] SAR filing due in 4 days for structuring case
+
+          REGULATORY RISK: ELEVATED
+          - Potential OFAC violation if sanctions match confirmed
+          - Multiple high-risk alerts pending resolution
+          - KYC compliance below 85% target
+
+          ESCALATIONS REQUIRED:
+          - CEO/Board notification on potential sanctions match
+          - Legal review of Eastern Shipping Co. transaction
+          - Security team review of unauthorized access attempt
+
+          24-HOUR ACTION PLAN:
+          Hour 0-4: Verify sanctions match, freeze if confirmed
+          Hour 4-8: Complete CTR filing preparation
+          Hour 8-12: Review all pending HIGH priority alerts
+          Hour 12-24: KYC outreach to expiring clients
+          """
+
+      output = {
+          'summary': summary,
+          'health_score': 62,
+          'rag_status': 'AMBER',
+          'critical_items': 3,
+          'escalation_required': True,
+          'generated_at': '2024-12-11T16:00:00Z'
+      }
+
+      print(json.dumps(output, indent=2))
+
+  # Task 5: Determine Escalations
+  - id: determine_escalations
+    type: io.kestra.plugin.scripts.python.Script
+    description: Determine required escalations and notifications
+    containerImage: python:3.11-slim
+    script: |
+      import json
+
+      # Simulated based on analysis (in real flow, use outputs)
+      health_score = 62
+      has_sanctions_match = True
+      critical_alerts = 3
+
+      escalations = {
+          'notify_cco': True,
+          'notify_ceo': has_sanctions_match,
+          'notify_legal': has_sanctions_match,
+          'notify_security_team': True,
+          'create_incident_ticket': has_sanctions_match,
+          'regulatory_filing_alert': True,
+          'priority': 'CRITICAL' if has_sanctions_match else 'HIGH',
+          'summary': {
+              'health_score': health_score,
+              'status': 'CRITICAL' if health_score < 60 else 'WARNING' if health_score < 75 else 'OK',
+              'immediate_actions': critical_alerts
+          }
+      }
+
+      print(json.dumps(escalations, indent=2))
+
+outputs:
+  - id: compliance_summary
+    type: STRING
+    value: "{{ outputs.generate_compliance_summary.vars.summary }}"
+
+  - id: health_score
+    type: INT
+    value: "{{ outputs.generate_compliance_summary.vars.health_score }}"
+
+  - id: escalation_required
+    type: BOOLEAN
+    value: "{{ outputs.determine_escalations.vars.notify_ceo }}"
+
+triggers:
+  # Run every 4 hours for compliance monitoring
+  - id: regular_check
+    type: io.kestra.plugin.core.trigger.Schedule
+    cron: "0 */4 * * *"
+
+  # Also run on demand when new alerts arrive (webhook trigger)
+  - id: alert_webhook
+    type: io.kestra.plugin.core.trigger.Webhook
+    key: compliance-alert-trigger

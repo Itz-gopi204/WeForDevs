@@ -1,0 +1,13 @@
+date,account_name,currency,balance,available_balance,bank,region
+2024-12-11,Operating Account USD,USD,2450000.00,2350000.00,JPMorgan Chase,North America
+2024-12-11,Operating Account EUR,EUR,1850000.00,1750000.00,Deutsche Bank,Europe
+2024-12-11,Operating Account GBP,GBP,980000.00,920000.00,Barclays,UK
+2024-12-11,Payroll Account,USD,450000.00,450000.00,Bank of America,North America
+2024-12-11,Investment Account,USD,5200000.00,5200000.00,Goldman Sachs,North America
+2024-12-11,Operating Account JPY,JPY,125000000.00,120000000.00,MUFG Bank,Asia Pacific
+2024-12-11,Reserve Account,USD,1500000.00,1500000.00,Citibank,North America
+2024-12-11,Vendor Payments,EUR,320000.00,280000.00,BNP Paribas,Europe
+2024-12-10,Operating Account USD,USD,2380000.00,2280000.00,JPMorgan Chase,North America
+2024-12-10,Operating Account EUR,EUR,1920000.00,1820000.00,Deutsche Bank,Europe
+2024-12-09,Operating Account USD,USD,2520000.00,2420000.00,JPMorgan Chase,North America
+2024-12-09,Operating Account EUR,EUR,1780000.00,1680000.00,Deutsche Bank,Europe

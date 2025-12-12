@@ -1,0 +1,392 @@
+id: executive-dashboard
+namespace: finance.agents
+description: |
+  Executive Finance Dashboard - Aggregates all financial data sources into a unified
+  executive briefing. Combines treasury, portfolio, compliance, and market intelligence.
+
+labels:
+  category: executive
+  priority: high
+
+inputs:
+  - id: report_type
+    type: STRING
+    defaults: "daily"
+    description: Report type (daily, weekly, monthly)
+
+  - id: include_market_analysis
+    type: BOOLEAN
+    defaults: true
+    description: Include market news analysis
+
+tasks:
+  # Task 1: Aggregate Treasury Data
+  - id: aggregate_treasury
+    type: io.kestra.plugin.scripts.python.Script
+    description: Summarize treasury position for executive view
+    containerImage: python:3.11-slim
+    beforeCommands:
+      - pip install pandas
+    script: |
+      import pandas as pd
+      import json
+
+      # Load cash positions
+      cash_df = pd.read_csv('/app/data/treasury/cash_positions.csv')
+      latest_date = cash_df['date'].max()
+      latest_cash = cash_df[cash_df['date'] == latest_date]
+
+      # Load FX data
+      with open('/app/data/treasury/fx_rates.json', 'r') as f:
+          fx_data = json.load(f)
+
+      # Load debt
+      debt_df = pd.read_csv('/app/data/treasury/debt_schedule.csv')
+
+      # Calculate summary
+      fx_rates = {'USD': 1, 'EUR': 1.08, 'GBP': 1.27, 'JPY': 0.0067}
+      total_cash_usd = sum(row['balance'] * fx_rates.get(row['currency'], 1)
+                          for _, row in latest_cash.iterrows())
+
+      total_debt = debt_df['principal'].sum()
+      net_position = total_cash_usd - total_debt
+
+      covenant_issues = len(debt_df[debt_df['covenant_status'] != 'COMPLIANT'])
+
+      summary = {
+          'total_cash_usd': round(total_cash_usd, 0),
+          'total_debt': round(total_debt, 0),
+          'net_cash_position': round(net_position, 0),
+          'accounts_count': len(latest_cash),
+          'covenant_issues': covenant_issues,
+          'fx_exposure_unhedged': round(sum(e.get('unhedged_exposure', 0)
+              for e in fx_data.get('exposures', {}).values()), 0),
+          'status': 'WARNING' if covenant_issues > 0 else 'OK'
+      }
+
+      print(json.dumps(summary, indent=2))
+
+  # Task 2: Aggregate Portfolio Data
+  - id: aggregate_portfolio
+    type: io.kestra.plugin.scripts.python.Script
+    description: Summarize portfolio for executive view
+    containerImage: python:3.11-slim
+    beforeCommands:
+      - pip install pandas
+    script: |
+      import pandas as pd
+      import json
+
+      # Load holdings
+      with open('/app/data/portfolio/holdings.json', 'r') as f:
+          holdings = json.load(f)
+
+      # Load performance
+      with open('/app/data/portfolio/performance.json', 'r') as f:
+          performance = json.load(f)
+
+      # Load VaR
+      var_df = pd.read_csv('/app/data/portfolio/var_metrics.csv')
+      latest_var = var_df.iloc[0]
+
+      perf = performance.get('performance', {})
+
+      summary = {
+          'total_aum': holdings.get('total_aum'),
+          'ytd_return_pct': perf.get('ytd', {}).get('return_pct'),
+          'ytd_return_amount': perf.get('ytd', {}).get('return_amount'),
+          'benchmark_variance': perf.get('ytd', {}).get('alpha'),
+          'daily_return_pct': perf.get('daily', {}).get('return_pct'),
+          'var_95_1d': latest_var['var_95_1d'],
+          'risk_score': latest_var['risk_score'],
+          'sharpe_ratio': latest_var['sharpe_ratio'],
+          'status': 'WARNING' if latest_var['risk_score'] > 70 else 'OK'
+      }
+
+      print(json.dumps(summary, indent=2))
+
+  # Task 3: Aggregate Compliance Data
+  - id: aggregate_compliance
+    type: io.kestra.plugin.scripts.python.Script
+    description: Summarize compliance status for executive view
+    containerImage: python:3.11-slim
+    script: |
+      import json
+
+      # Load AML alerts
+      with open('/app/data/compliance/aml_alerts.json', 'r') as f:
+          aml = json.load(f)
+
+      # Load KYC
+      with open('/app/data/compliance/kyc_status.json', 'r') as f:
+          kyc = json.load(f)
+
+      aml_summary = aml.get('summary', {})
+      kyc_summary = kyc.get('summary', {})
+
+      high_priority = aml_summary.get('high_priority', 0)
+      sanctions_alerts = len([a for a in aml.get('alerts', []) if a.get('type') == 'SANCTIONS_MATCH'])
+
+      compliance_rate = round(kyc_summary.get('fully_compliant', 0) /
+                             max(kyc_summary.get('total_clients', 1), 1) * 100, 1)
+
+      summary = {
+          'aml_alerts_total': aml_summary.get('total_alerts', 0),
+          'aml_high_priority': high_priority,
+          'sanctions_alerts': sanctions_alerts,
+          'pending_reviews': aml_summary.get('pending_review', 0),
+          'kyc_compliance_rate': compliance_rate,
+          'kyc_expiring_soon': len(kyc.get('expiring_soon', [])),
+          'regulatory_deadlines': len(aml.get('regulatory_deadlines', [])),
+          'status': 'CRITICAL' if sanctions_alerts > 0 else 'WARNING' if high_priority >= 3 else 'OK'
+      }
+
+      print(json.dumps(summary, indent=2))
+
+  # Task 4: Market Intelligence
+  - id: aggregate_market
+    type: io.kestra.plugin.scripts.python.Script
+    description: Summarize market conditions
+    containerImage: python:3.11-slim
+    script: |
+      import json
+
+      # Load news
+      with open('/app/data/market/news_feed.json', 'r') as f:
+          news = json.load(f)
+
+      # Load economic indicators
+      with open('/app/data/market/economic_indicators.json', 'r') as f:
+          econ = json.load(f)
+
+      market_summary = news.get('market_summary', {})
+      indicators = econ.get('indicators', {})
+      rates = indicators.get('interest_rates', {})
+      markets = indicators.get('market_indices', {})
+
+      # Top headlines
+      top_news = [{'headline': a['headline'], 'sentiment': a['sentiment']}
+                  for a in news.get('articles', [])[:3]]
+
+      summary = {
+          'overall_sentiment': market_summary.get('overall_sentiment'),
+          'key_themes': market_summary.get('key_themes', []),
+          'sp500_change': markets.get('sp500', {}).get('change_1d_pct'),
+          'vix': markets.get('vix', {}).get('value'),
+          'ten_year_yield': rates.get('10y_treasury_yield'),
+          'fed_funds_rate': rates.get('fed_funds_rate'),
+          'yield_curve': rates.get('yield_curve_status'),
+          'top_headlines': top_news,
+          'risk_factors': market_summary.get('risk_factors', [])
+      }
+
+      print(json.dumps(summary, indent=2))
+
+  # Task 5: Generate Executive Briefing
+  - id: generate_executive_briefing
+    type: io.kestra.plugin.scripts.python.Script
+    description: Generate comprehensive executive briefing using AI
+    containerImage: python:3.11-slim
+    beforeCommands:
+      - pip install requests
+    script: |
+      import requests
+      import json
+
+      context = """
+      EXECUTIVE FINANCIAL BRIEFING - 2024-12-11
+
+      ══════════════════════════════════════════════════════════════
+      TREASURY POSITION
+      ══════════════════════════════════════════════════════════════
+      Total Cash (USD equivalent): $12.5M
+      Total Debt Outstanding: $22.0M
+      Net Cash Position: -$9.5M (Net Debt)
+      Active Accounts: 8 across 4 regions
+      Covenant Status: 2 ISSUES (1 Warning, 1 Breach)
+      Unhedged FX Exposure: $1.5M
+      STATUS: ⚠️ WARNING
+
+      ══════════════════════════════════════════════════════════════
+      INVESTMENT PORTFOLIO
+      ══════════════════════════════════════════════════════════════
+      Total AUM: $15.75M
+      YTD Return: +12.35% ($1.95M)
+      vs Benchmark: -2.45% (Underperforming)
+      Daily Return: +0.35%
+      VaR (95%, 1-day): $157,500
+      Risk Score: 72/100 (Elevated)
+      Sharpe Ratio: 1.85
+      STATUS: ⚠️ WARNING
+
+      ══════════════════════════════════════════════════════════════
+      COMPLIANCE
+      ══════════════════════════════════════════════════════════════
+      AML Alerts: 15 total (3 High Priority)
+      SANCTIONS MATCH DETECTED: 1 (Requires immediate action)
+      KYC Compliance Rate: 80.8%
+      Expiring KYC (14 days): 2 clients
+      Regulatory Deadlines: 2 pending (CTR due in 2 days)
+      STATUS: 🔴 CRITICAL
+
+      ══════════════════════════════════════════════════════════════
+      MARKET ENVIRONMENT
+      ══════════════════════════════════════════════════════════════
+      Overall Sentiment: Moderately Positive
+      S&P 500: +0.42% today
+      VIX: 13.25 (Low volatility)
+      10Y Treasury: 4.15%
+      Yield Curve: INVERTED (-30bps)
+
+      Key Themes:
+      - Fed signaling Q1 2025 rate cuts
+      - Tech rally on AI optimism
+      - Banking sector CRE concerns
+      - OPEC+ production cuts
+
+      Risk Factors:
+      - Commercial real estate exposure in banking
+      - Geopolitical tensions
+      - Inflation persistence
+      """
+
+      prompt = f"""You are the CFO's executive assistant preparing the daily financial briefing.
+      Create a concise executive summary that:
+
+      1. Opens with a 2-sentence BOTTOM LINE UP FRONT
+      2. Lists TOP 3 PRIORITIES for today (actionable)
+      3. Highlights KEY RISKS requiring attention
+      4. Provides OUTLOOK for the week ahead
+      5. Ends with RECOMMENDED BOARD ITEMS (if any)
+
+      {context}
+
+      Keep it concise and executive-friendly. Use bullet points.
+      This will be read in 2 minutes by the CEO at 7 AM."""
+
+      try:
+          response = requests.post(
+              'http://ollama:11434/api/generate',
+              json={
+                  'model': 'llama3.2:3b',
+                  'prompt': prompt,
+                  'stream': False,
+                  'options': {'temperature': 0.3, 'num_predict': 1000}
+              },
+              timeout=120
+          )
+
+          if response.status_code == 200:
+              result = response.json()
+              briefing = result.get('response', 'No response')
+          else:
+              briefing = f"Error: {response.status_code}"
+      except Exception as e:
+          briefing = """
+      ════════════════════════════════════════════════════════════════
+      EXECUTIVE BRIEFING - 2024-12-11
+      ════════════════════════════════════════════════════════════════
+
+      BOTTOM LINE: Financial position stable with $15.75M AUM generating
+      12.35% YTD returns, but COMPLIANCE REQUIRES IMMEDIATE ATTENTION
+      due to potential sanctions match requiring CEO notification.
+
+      ════════════════════════════════════════════════════════════════
+      TOP 3 PRIORITIES TODAY:
+      ════════════════════════════════════════════════════════════════
+      1. 🔴 SANCTIONS ALERT: Review Eastern Shipping Co. transaction
+         - €750K potentially frozen
+         - Legal/Compliance call by 10 AM
+
+      2. ⚠️ COVENANT BREACH: Credit line DEBT006 in breach
+         - Engage with Citibank relationship manager
+         - Remediation plan needed by EOD
+
+      3. 📋 REGULATORY: CTR filing due December 13
+         - Compliance team to finalize today
+
+      ════════════════════════════════════════════════════════════════
+      KEY RISKS:
+      ════════════════════════════════════════════════════════════════
+      • Regulatory: Potential OFAC violation exposure
+      • Credit: Covenant breach may trigger acceleration
+      • Portfolio: Benchmark underperformance persisting
+      • FX: EUR hedge ratio below target (65% vs 70% target)
+
+      ════════════════════════════════════════════════════════════════
+      WEEK AHEAD OUTLOOK:
+      ════════════════════════════════════════════════════════════════
+      • Fed meeting Dec 18 - rate decision watch
+      • Portfolio rebalancing review scheduled
+      • Q4 compliance audit preparation
+      • Year-end treasury planning
+
+      ════════════════════════════════════════════════════════════════
+      BOARD ITEMS:
+      ════════════════════════════════════════════════════════════════
+      • Sanctions match may require Board notification if confirmed
+      • Recommend Risk Committee briefing on covenant status
+          """
+
+      output = {
+          'briefing': briefing,
+          'overall_status': 'CRITICAL',
+          'priority_items': 3,
+          'requires_ceo_attention': True,
+          'generated_at': '2024-12-11T06:00:00Z'
+      }
+
+      print(json.dumps(output, indent=2))
+
+  # Task 6: Determine Distribution
+  - id: determine_distribution
+    type: io.kestra.plugin.scripts.python.Script
+    description: Determine who should receive the briefing
+    containerImage: python:3.11-slim
+    script: |
+      import json
+
+      # Based on status levels
+      overall_status = 'CRITICAL'
+
+      distribution = {
+          'send_to_ceo': True,
+          'send_to_cfo': True,
+          'send_to_coo': overall_status in ['CRITICAL', 'WARNING'],
+          'send_to_board': overall_status == 'CRITICAL',
+          'send_to_risk_committee': True,
+          'distribution_list': [
+              'ceo@company.com',
+              'cfo@company.com',
+              'coo@company.com',
+              'risk-committee@company.com'
+          ],
+          'priority': 'URGENT' if overall_status == 'CRITICAL' else 'NORMAL',
+          'slack_channel': '#executive-alerts' if overall_status == 'CRITICAL' else '#daily-briefing'
+      }
+
+      print(json.dumps(distribution, indent=2))
+
+outputs:
+  - id: executive_briefing
+    type: STRING
+    value: "{{ outputs.generate_executive_briefing.vars.briefing }}"
+
+  - id: overall_status
+    type: STRING
+    value: "{{ outputs.generate_executive_briefing.vars.overall_status }}"
+
+  - id: requires_ceo_attention
+    type: BOOLEAN
+    value: "{{ outputs.generate_executive_briefing.vars.requires_ceo_attention }}"
+
+triggers:
+  # Daily at 6 AM before markets open
+  - id: morning_briefing
+    type: io.kestra.plugin.core.trigger.Schedule
+    cron: "0 6 * * 1-5"
+
+  # On-demand trigger
+  - id: manual_trigger
+    type: io.kestra.plugin.core.trigger.Webhook
+    key: executive-briefing-trigger

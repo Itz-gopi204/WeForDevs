@@ -1,0 +1,13 @@
+{
+  "name": "finance-ai-dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Frontend dashboard for Finance AI Orchestrator",
+  "scripts": {
+    "dev": "echo 'Frontend not yet implemented. Run npm install && npm run setup first.'",
+    "setup": "echo 'To be implemented: React/Vue/Next.js setup'"
+  },
+  "dependencies": {},
+  "devDependencies": {},
+  "readme": "Frontend for Finance AI Orchestrator - To be implemented after backend is stable"
+}

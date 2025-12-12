@@ -1,0 +1,133 @@
+{
+  "report_date": "2024-12-11",
+  "summary": {
+    "total_alerts": 15,
+    "high_priority": 3,
+    "medium_priority": 7,
+    "low_priority": 5,
+    "pending_review": 8,
+    "under_investigation": 4,
+    "resolved": 3
+  },
+  "alerts": [
+    {
+      "alert_id": "AML-2024-1205",
+      "timestamp": "2024-12-11T09:15:00Z",
+      "priority": "HIGH",
+      "status": "PENDING_REVIEW",
+      "type": "UNUSUAL_TRANSACTION_PATTERN",
+      "client_id": "CL-45892",
+      "client_name": "Redacted Corp Ltd.",
+      "description": "Multiple large wire transfers to high-risk jurisdiction within 24 hours",
+      "amount": 2500000.00,
+      "currency": "USD",
+      "risk_score": 92,
+      "flagged_countries": ["Cayman Islands", "Cyprus"],
+      "recommended_action": "Immediate escalation to compliance officer"
+    },
+    {
+      "alert_id": "AML-2024-1204",
+      "timestamp": "2024-12-11T08:30:00Z",
+      "priority": "HIGH",
+      "status": "UNDER_INVESTIGATION",
+      "type": "STRUCTURING_SUSPECTED",
+      "client_id": "CL-33241",
+      "client_name": "Global Trade Partners",
+      "description": "Series of deposits just below reporting threshold",
+      "amount": 89500.00,
+      "currency": "USD",
+      "risk_score": 88,
+      "flagged_countries": [],
+      "recommended_action": "File SAR if pattern continues"
+    },
+    {
+      "alert_id": "AML-2024-1203",
+      "timestamp": "2024-12-10T16:45:00Z",
+      "priority": "HIGH",
+      "status": "PENDING_REVIEW",
+      "type": "SANCTIONS_MATCH",
+      "client_id": "CL-67823",
+      "client_name": "Eastern Shipping Co.",
+      "description": "Potential match with OFAC sanctions list - partial name match",
+      "amount": 750000.00,
+      "currency": "EUR",
+      "risk_score": 95,
+      "flagged_countries": ["Russia"],
+      "recommended_action": "Freeze transaction pending verification"
+    },
+    {
+      "alert_id": "AML-2024-1202",
+      "timestamp": "2024-12-10T14:20:00Z",
+      "priority": "MEDIUM",
+      "status": "UNDER_INVESTIGATION",
+      "type": "VELOCITY_ANOMALY",
+      "client_id": "CL-12098",
+      "client_name": "Tech Solutions Inc.",
+      "description": "Transaction volume 300% above historical average",
+      "amount": 450000.00,
+      "currency": "USD",
+      "risk_score": 72,
+      "flagged_countries": [],
+      "recommended_action": "Request documentation for business justification"
+    },
+    {
+      "alert_id": "AML-2024-1201",
+      "timestamp": "2024-12-10T11:00:00Z",
+      "priority": "MEDIUM",
+      "status": "PENDING_REVIEW",
+      "type": "NEW_COUNTERPARTY_RISK",
+      "client_id": "CL-88432",
+      "client_name": "Premier Holdings LLC",
+      "description": "Large transaction with newly onboarded counterparty",
+      "amount": 1200000.00,
+      "currency": "USD",
+      "risk_score": 68,
+      "flagged_countries": ["UAE"],
+      "recommended_action": "Enhanced due diligence on counterparty"
+    },
+    {
+      "alert_id": "AML-2024-1200",
+      "timestamp": "2024-12-09T15:30:00Z",
+      "priority": "MEDIUM",
+      "status": "RESOLVED",
+      "type": "KYC_EXPIRY",
+      "client_id": "CL-55612",
+      "client_name": "Midwest Manufacturing",
+      "description": "KYC documentation expired - high value client",
+      "amount": 0.00,
+      "currency": "USD",
+      "risk_score": 55,
+      "flagged_countries": [],
+      "recommended_action": "KYC refresh completed"
+    },
+    {
+      "alert_id": "AML-2024-1199",
+      "timestamp": "2024-12-09T10:15:00Z",
+      "priority": "LOW",
+      "status": "PENDING_REVIEW",
+      "type": "PEP_ASSOCIATION",
+      "client_id": "CL-77234",
+      "client_name": "Capital Growth Partners",
+      "description": "Beneficial owner linked to politically exposed person",
+      "amount": 350000.00,
+      "currency": "USD",
+      "risk_score": 48,
+      "flagged_countries": ["Brazil"],
+      "recommended_action": "Annual enhanced review scheduled"
+    }
+  ],
+  "regulatory_deadlines": [
+    {
+      "filing_type": "SAR",
+      "due_date": "2024-12-15",
+      "related_alerts": ["AML-2024-1204"],
+      "status": "PENDING"
+    },
+    {
+      "filing_type": "CTR",
+      "due_date": "2024-12-13",
+      "related_alerts": ["AML-2024-1205"],
+      "status": "IN_PROGRESS"
+    }
+  ]
+}

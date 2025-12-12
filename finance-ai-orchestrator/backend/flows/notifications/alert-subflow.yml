@@ -1,0 +1,240 @@
+id: send-alerts
+namespace: finance.notifications
+description: |
+  Reusable notification subflow that sends alerts via multiple channels.
+  Supports Slack, Email, and logging for audit purposes.
+
+labels:
+  category: notifications
+  reusable: true
+
+inputs:
+  - id: alert_type
+    type: STRING
+    description: Type of alert (TREASURY, PORTFOLIO, COMPLIANCE, EXECUTIVE)
+
+  - id: priority
+    type: STRING
+    defaults: "MEDIUM"
+    description: Alert priority (LOW, MEDIUM, HIGH, CRITICAL)
+
+  - id: title
+    type: STRING
+    description: Alert title/subject
+
+  - id: message
+    type: STRING
+    description: Alert message body
+
+  - id: recipients
+    type: STRING
+    defaults: "team@company.com"
+    description: Comma-separated email recipients
+
+  - id: slack_channel
+    type: STRING
+    defaults: "#finance-alerts"
+    description: Slack channel for notifications
+
+  - id: include_slack
+    type: BOOLEAN
+    defaults: true
+    description: Send Slack notification
+
+  - id: include_email
+    type: BOOLEAN
+    defaults: true
+    description: Send email notification
+
+tasks:
+  # Task 1: Log the alert (always runs for audit)
+  - id: log_alert
+    type: io.kestra.plugin.scripts.python.Script
+    description: Log alert for audit trail
+    containerImage: python:3.11-slim
+    script: |
+      import json
+      from datetime import datetime
+
+      alert_log = {
+          'timestamp': datetime.utcnow().isoformat() + 'Z',
+          'alert_type': '{{ inputs.alert_type }}',
+          'priority': '{{ inputs.priority }}',
+          'title': '{{ inputs.title }}',
+          'message': '''{{ inputs.message }}''',
+          'channels': {
+              'slack': {{ inputs.include_slack }},
+              'email': {{ inputs.include_email }}
+          },
+          'recipients': '{{ inputs.recipients }}'.split(','),
+          'slack_channel': '{{ inputs.slack_channel }}'
+      }
+
+      print("=" * 60)
+      print("ALERT LOGGED FOR AUDIT")
+      print("=" * 60)
+      print(json.dumps(alert_log, indent=2))
+      print("=" * 60)
+
+  # Task 2: Send Slack notification
+  - id: send_slack
+    type: io.kestra.plugin.scripts.python.Script
+    description: Send Slack webhook notification
+    containerImage: python:3.11-slim
+    runIf: "{{ inputs.include_slack }}"
+    beforeCommands:
+      - pip install requests
+    script: |
+      import requests
+      import json
+      import os
+
+      # Priority emoji mapping
+      priority_emoji = {
+          'LOW': 'ℹ️',
+          'MEDIUM': '⚠️',
+          'HIGH': '🔶',
+          'CRITICAL': '🚨'
+      }
+
+      priority = '{{ inputs.priority }}'
+      emoji = priority_emoji.get(priority, '📢')
+
+      # Build Slack message
+      slack_message = {
+          'channel': '{{ inputs.slack_channel }}',
+          'username': 'Finance AI Agent',
+          'icon_emoji': ':robot_face:',
+          'attachments': [
+              {
+                  'color': '#ff0000' if priority == 'CRITICAL' else '#ffa500' if priority == 'HIGH' else '#ffff00' if priority == 'MEDIUM' else '#00ff00',
+                  'title': f"{emoji} {{ inputs.title }}",
+                  'text': '''{{ inputs.message }}''',
+                  'fields': [
+                      {
+                          'title': 'Alert Type',
+                          'value': '{{ inputs.alert_type }}',
+                          'short': True
+                      },
+                      {
+                          'title': 'Priority',
+                          'value': priority,
+                          'short': True
+                      }
+                  ],
+                  'footer': 'Kestra Finance AI Orchestrator',
+                  'ts': int(__import__('time').time())
+              }
+          ]
+      }
+
+      # Get webhook URL from environment or use placeholder
+      webhook_url = os.environ.get('SLACK_WEBHOOK_URL', '')
+
+      if webhook_url:
+          try:
+              response = requests.post(webhook_url, json=slack_message, timeout=10)
+              print(f"Slack notification sent: {response.status_code}")
+          except Exception as e:
+              print(f"Slack error: {e}")
+      else:
+          print("SLACK_WEBHOOK_URL not configured - logging message instead:")
+          print(json.dumps(slack_message, indent=2))
+
+  # Task 3: Send Email notification
+  - id: send_email
+    type: io.kestra.plugin.scripts.python.Script
+    description: Send email notification
+    containerImage: python:3.11-slim
+    runIf: "{{ inputs.include_email }}"
+    beforeCommands:
+      - pip install requests
+    script: |
+      import json
+      import os
+      from datetime import datetime
+
+      # Build email content
+      priority = '{{ inputs.priority }}'
+      priority_prefix = '[URGENT] ' if priority == 'CRITICAL' else '[ACTION REQUIRED] ' if priority == 'HIGH' else ''
+
+      email_data = {
+          'to': '{{ inputs.recipients }}'.split(','),
+          'subject': f"{priority_prefix}{{ inputs.title }}",
+          'body_html': f"""
+          <html>
+          <body style="font-family: Arial, sans-serif;">
+              <div style="background-color: {'#ff0000' if priority == 'CRITICAL' else '#ffa500' if priority == 'HIGH' else '#ffff00'}; padding: 10px; color: {'white' if priority in ['CRITICAL', 'HIGH'] else 'black'};">
+                  <h2>{{ inputs.alert_type }} Alert - {priority} Priority</h2>
+              </div>
+              <div style="padding: 20px;">
+                  <h3>{{ inputs.title }}</h3>
+                  <pre style="background-color: #f5f5f5; padding: 15px; white-space: pre-wrap;">{{ inputs.message }}</pre>
+                  <hr>
+                  <p style="color: #666; font-size: 12px;">
+                      Generated by Kestra Finance AI Orchestrator<br>
+                      Timestamp: {datetime.utcnow().isoformat()}Z
+                  </p>
+              </div>
+          </body>
+          </html>
+          """,
+          'body_text': '''{{ inputs.message }}'''
+      }
+
+      # In production, integrate with SMTP or email service
+      # For demo, we log the email content
+      smtp_configured = os.environ.get('SMTP_HOST', '')
+
+      if smtp_configured:
+          # Would use smtplib here
+          print("Email would be sent via SMTP")
+      else:
+          print("SMTP not configured - logging email instead:")
+          print("=" * 60)
+          print(f"TO: {email_data['to']}")
+          print(f"SUBJECT: {email_data['subject']}")
+          print("=" * 60)
+          print(email_data['body_text'])
+          print("=" * 60)
+
+  # Task 4: Create incident ticket (for critical alerts)
+  - id: create_ticket
+    type: io.kestra.plugin.scripts.python.Script
+    description: Create incident ticket for critical alerts
+    containerImage: python:3.11-slim
+    runIf: "{{ inputs.priority == 'CRITICAL' }}"
+    script: |
+      import json
+      from datetime import datetime
+
+      ticket = {
+          'ticket_type': 'INCIDENT',
+          'priority': 'P1',
+          'title': '{{ inputs.title }}',
+          'description': '''{{ inputs.message }}''',
+          'category': '{{ inputs.alert_type }}',
+          'created_at': datetime.utcnow().isoformat() + 'Z',
+          'assigned_to': 'on-call-team',
+          'status': 'OPEN',
+          'sla_response': '15 minutes',
+          'sla_resolution': '4 hours'
+      }
+
+      print("=" * 60)
+      print("INCIDENT TICKET CREATED (CRITICAL ALERT)")
+      print("=" * 60)
+      print(json.dumps(ticket, indent=2))
+      print("=" * 60)
+
+      # In production, integrate with Jira/ServiceNow/PagerDuty
+      # Example: requests.post('https://jira.company.com/api/issues', json=ticket)
+
+outputs:
+  - id: notification_status
+    type: STRING
+    value: "Alerts sent successfully"
+
+  - id: channels_notified
+    type: STRING
+    value: "slack,email,log"

@@ -1,0 +1,65 @@
+{
+  "as_of_date": "2024-12-11",
+  "indicators": {
+    "interest_rates": {
+      "fed_funds_rate": 5.25,
+      "fed_funds_target_upper": 5.50,
+      "fed_funds_target_lower": 5.25,
+      "prime_rate": 8.50,
+      "10y_treasury_yield": 4.15,
+      "2y_treasury_yield": 4.45,
+      "yield_curve_spread": -0.30,
+      "yield_curve_status": "INVERTED"
+    },
+    "inflation": {
+      "cpi_yoy": 3.1,
+      "cpi_mom": 0.2,
+      "core_cpi_yoy": 3.4,
+      "pce_yoy": 2.8,
+      "core_pce_yoy": 3.0,
+      "breakeven_5y": 2.25,
+      "breakeven_10y": 2.35
+    },
+    "employment": {
+      "unemployment_rate": 3.9,
+      "nonfarm_payrolls_change": 199000,
+      "avg_hourly_earnings_yoy": 4.0,
+      "labor_force_participation": 62.8,
+      "initial_jobless_claims": 218000
+    },
+    "growth": {
+      "gdp_growth_qoq_annualized": 2.8,
+      "gdp_growth_yoy": 2.4,
+      "industrial_production_mom": 0.3,
+      "retail_sales_mom": 0.5,
+      "consumer_confidence": 102.5
+    },
+    "market_indices": {
+      "sp500": {
+        "value": 4782.50,
+        "change_1d_pct": 0.42,
+        "change_ytd_pct": 14.80,
+        "pe_ratio": 22.5,
+        "dividend_yield": 1.45
+      },
+      "nasdaq": {
+        "value": 15085.25,
+        "change_1d_pct": 0.68,
+        "change_ytd_pct": 18.25
+      },
+      "vix": {
+        "value": 13.25,
+        "change_1d": -0.45,
+        "status": "LOW_VOLATILITY"
+      }
+    }
+  },
+  "outlook": {
+    "fed_next_meeting": "2024-12-18",
+    "market_expectations": {
+      "rate_hold_probability": 0.85,
+      "rate_cut_probability": 0.15,
+      "expected_cuts_2025": 3
+    }
+  }
+}

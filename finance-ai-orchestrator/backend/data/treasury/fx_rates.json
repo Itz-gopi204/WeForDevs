@@ -1,0 +1,61 @@
+{
+  "timestamp": "2024-12-11T16:00:00Z",
+  "base_currency": "USD",
+  "rates": {
+    "EUR": {
+      "rate": 0.9245,
+      "change_24h": -0.0032,
+      "change_pct": -0.35,
+      "high_52w": 0.9650,
+      "low_52w": 0.8820
+    },
+    "GBP": {
+      "rate": 0.7892,
+      "change_24h": 0.0015,
+      "change_pct": 0.19,
+      "high_52w": 0.8250,
+      "low_52w": 0.7520
+    },
+    "JPY": {
+      "rate": 149.25,
+      "change_24h": 1.45,
+      "change_pct": 0.98,
+      "high_52w": 161.80,
+      "low_52w": 140.20
+    },
+    "CHF": {
+      "rate": 0.8765,
+      "change_24h": -0.0018,
+      "change_pct": -0.21,
+      "high_52w": 0.9120,
+      "low_52w": 0.8420
+    },
+    "CAD": {
+      "rate": 1.3542,
+      "change_24h": 0.0028,
+      "change_pct": 0.21,
+      "high_52w": 1.3890,
+      "low_52w": 1.3180
+    }
+  },
+  "exposures": {
+    "EUR": {
+      "net_position": 1850000,
+      "hedged_amount": 1200000,
+      "unhedged_exposure": 650000,
+      "hedge_ratio": 0.65
+    },
+    "GBP": {
+      "net_position": 980000,
+      "hedged_amount": 800000,
+      "unhedged_exposure": 180000,
+      "hedge_ratio": 0.82
+    },
+    "JPY": {
+      "net_position": 125000000,
+      "hedged_amount": 100000000,
+      "unhedged_exposure": 25000000,
+      "hedge_ratio": 0.80
+    }
+  }
+}

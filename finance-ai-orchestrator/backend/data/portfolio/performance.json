@@ -1,0 +1,52 @@
+{
+  "portfolio_id": "CORP-MAIN-001",
+  "as_of_date": "2024-12-11",
+  "performance": {
+    "daily": {
+      "return_pct": 0.35,
+      "return_amount": 55125.00,
+      "benchmark_return": 0.42,
+      "alpha": -0.07
+    },
+    "wtd": {
+      "return_pct": 1.25,
+      "return_amount": 196875.00,
+      "benchmark_return": 1.45,
+      "alpha": -0.20
+    },
+    "mtd": {
+      "return_pct": 2.85,
+      "return_amount": 448875.00,
+      "benchmark_return": 3.10,
+      "alpha": -0.25
+    },
+    "qtd": {
+      "return_pct": 5.45,
+      "return_amount": 858375.00,
+      "benchmark_return": 6.20,
+      "alpha": -0.75
+    },
+    "ytd": {
+      "return_pct": 12.35,
+      "return_amount": 1945125.00,
+      "benchmark_return": 14.80,
+      "alpha": -2.45
+    }
+  },
+  "attribution": {
+    "asset_allocation_effect": 0.85,
+    "security_selection_effect": -1.10,
+    "interaction_effect": 0.15,
+    "currency_effect": -0.35
+  },
+  "top_contributors": [
+    {"ticker": "MSFT", "contribution": 2.15},
+    {"ticker": "AAPL", "contribution": 1.85},
+    {"ticker": "GLD", "contribution": 0.95}
+  ],
+  "top_detractors": [
+    {"ticker": "JNJ", "contribution": -0.45},
+    {"ticker": "US10Y", "contribution": -0.72},
+    {"ticker": "XOM", "contribution": -0.38}
+  ]
+}

@@ -1,0 +1,59 @@
+{
+  "report_date": "2024-12-11",
+  "summary": {
+    "total_clients": 245,
+    "fully_compliant": 198,
+    "pending_review": 28,
+    "expired_documentation": 12,
+    "high_risk_clients": 7
+  },
+  "expiring_soon": [
+    {
+      "client_id": "CL-12345",
+      "client_name": "Alpha Investments Ltd",
+      "kyc_expiry_date": "2024-12-20",
+      "days_until_expiry": 9,
+      "risk_rating": "MEDIUM",
+      "last_review_date": "2023-12-20",
+      "required_documents": ["ID Verification", "Source of Funds", "Business Registration"]
+    },
+    {
+      "client_id": "CL-67890",
+      "client_name": "Global Finance Corp",
+      "kyc_expiry_date": "2024-12-25",
+      "days_until_expiry": 14,
+      "risk_rating": "HIGH",
+      "last_review_date": "2023-06-25",
+      "required_documents": ["Enhanced Due Diligence", "UBO Declaration", "Tax Compliance Certificate"]
+    },
+    {
+      "client_id": "CL-11223",
+      "client_name": "Pacific Trading LLC",
+      "kyc_expiry_date": "2024-12-31",
+      "days_until_expiry": 20,
+      "risk_rating": "LOW",
+      "last_review_date": "2023-12-31",
+      "required_documents": ["ID Verification", "Address Proof"]
+    }
+  ],
+  "high_risk_clients": [
+    {
+      "client_id": "CL-99887",
+      "client_name": "Eastern Commodities Trading",
+      "risk_rating": "HIGH",
+      "risk_factors": ["High-risk jurisdiction", "Complex ownership structure", "Cash-intensive business"],
+      "last_review_date": "2024-09-15",
+      "next_review_date": "2025-03-15",
+      "monitoring_status": "ENHANCED"
+    },
+    {
+      "client_id": "CL-77665",
+      "client_name": "Offshore Holdings Inc",
+      "risk_rating": "HIGH",
+      "risk_factors": ["PEP association", "Multiple jurisdictions", "Large transaction volumes"],
+      "last_review_date": "2024-10-01",
+      "next_review_date": "2025-04-01",
+      "monitoring_status": "ENHANCED"
+    }
+  ]
+}

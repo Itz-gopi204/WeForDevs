@@ -1,0 +1,110 @@
+{
+  "fetch_timestamp": "2024-12-11T16:00:00Z",
+  "articles": [
+    {
+      "id": "NEWS-001",
+      "headline": "Federal Reserve Signals Potential Rate Cut in Q1 2025",
+      "source": "Reuters",
+      "published_at": "2024-12-11T14:30:00Z",
+      "category": "MONETARY_POLICY",
+      "sentiment": "POSITIVE",
+      "sentiment_score": 0.72,
+      "relevance_score": 0.95,
+      "summary": "Fed Chair indicated openness to rate cuts if inflation continues to moderate, boosting market expectations for easing cycle to begin earlier than anticipated.",
+      "tickers_mentioned": ["SPY", "TLT", "IEF"],
+      "impact_assessment": "Positive for equities and bonds, potential USD weakness"
+    },
+    {
+      "id": "NEWS-002",
+      "headline": "Oil Prices Surge 4% on OPEC+ Production Cut Extension",
+      "source": "Bloomberg",
+      "published_at": "2024-12-11T12:15:00Z",
+      "category": "COMMODITIES",
+      "sentiment": "MIXED",
+      "sentiment_score": 0.15,
+      "relevance_score": 0.88,
+      "summary": "OPEC+ agrees to extend production cuts through Q2 2025, pushing Brent crude above $78 per barrel. Energy stocks rally while concerns mount over inflationary impact.",
+      "tickers_mentioned": ["XOM", "CVX", "USO", "XLE"],
+      "impact_assessment": "Positive for energy holdings, negative for inflation outlook"
+    },
+    {
+      "id": "NEWS-003",
+      "headline": "China Manufacturing PMI Beats Expectations, Signals Recovery",
+      "source": "Financial Times",
+      "published_at": "2024-12-11T08:00:00Z",
+      "category": "ECONOMIC_DATA",
+      "sentiment": "POSITIVE",
+      "sentiment_score": 0.65,
+      "relevance_score": 0.82,
+      "summary": "China's manufacturing PMI rose to 51.2, exceeding forecasts and marking third consecutive month of expansion. Export orders show strongest growth in 18 months.",
+      "tickers_mentioned": ["FXI", "EEM", "BABA"],
+      "impact_assessment": "Positive for emerging markets and global trade-sensitive assets"
+    },
+    {
+      "id": "NEWS-004",
+      "headline": "Major Bank Announces $2B Loss on Commercial Real Estate Portfolio",
+      "source": "Wall Street Journal",
+      "published_at": "2024-12-11T06:45:00Z",
+      "category": "BANKING",
+      "sentiment": "NEGATIVE",
+      "sentiment_score": -0.68,
+      "relevance_score": 0.75,
+      "summary": "Regional bank discloses significant write-downs on office property loans, raising concerns about broader commercial real estate exposure across banking sector.",
+      "tickers_mentioned": ["KRE", "XLF", "JPM", "BAC"],
+      "impact_assessment": "Negative for financial sector, watch for contagion risk"
+    },
+    {
+      "id": "NEWS-005",
+      "headline": "EU Proposes New ESG Reporting Requirements for Asset Managers",
+      "source": "Reuters",
+      "published_at": "2024-12-10T16:30:00Z",
+      "category": "REGULATORY",
+      "sentiment": "NEUTRAL",
+      "sentiment_score": 0.05,
+      "relevance_score": 0.70,
+      "summary": "European Commission unveils enhanced sustainability disclosure rules, requiring quarterly ESG impact reporting by 2026. Industry groups warn of compliance costs.",
+      "tickers_mentioned": [],
+      "impact_assessment": "Compliance consideration for European operations"
+    },
+    {
+      "id": "NEWS-006",
+      "headline": "Tech Giants Lead Market Rally Amid AI Optimism",
+      "source": "CNBC",
+      "published_at": "2024-12-10T20:00:00Z",
+      "category": "TECHNOLOGY",
+      "sentiment": "POSITIVE",
+      "sentiment_score": 0.78,
+      "relevance_score": 0.90,
+      "summary": "Magnificent Seven stocks add $500B in market cap as analysts raise AI revenue forecasts. Microsoft and Apple reach new all-time highs on enterprise AI adoption trends.",
+      "tickers_mentioned": ["AAPL", "MSFT", "GOOGL", "NVDA", "META"],
+      "impact_assessment": "Positive for technology holdings, supports current overweight position"
+    },
+    {
+      "id": "NEWS-007",
+      "headline": "Treasury Yields Fall as Inflation Expectations Moderate",
+      "source": "Bloomberg",
+      "published_at": "2024-12-10T15:00:00Z",
+      "category": "FIXED_INCOME",
+      "sentiment": "POSITIVE",
+      "sentiment_score": 0.55,
+      "relevance_score": 0.92,
+      "summary": "10-year Treasury yield drops to 4.15% as breakeven inflation rates decline. Bond market pricing suggests confidence in Fed achieving soft landing.",
+      "tickers_mentioned": ["TLT", "IEF", "BND"],
+      "impact_assessment": "Positive for fixed income portfolio, duration positioning favorable"
+    }
+  ],
+  "market_summary": {
+    "overall_sentiment": "MODERATELY_POSITIVE",
+    "key_themes": [
+      "Fed policy pivot expectations",
+      "AI-driven tech rally",
+      "Commercial real estate concerns",
+      "Commodity price volatility"
+    ],
+    "risk_factors": [
+      "Banking sector CRE exposure",
+      "Geopolitical tensions",
+      "Inflation persistence"
+    ]
+  }
+}

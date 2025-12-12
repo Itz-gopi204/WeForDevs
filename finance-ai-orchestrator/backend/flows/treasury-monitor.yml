@@ -1,0 +1,282 @@
+id: treasury-monitor
+namespace: finance.agents
+description: |
+  Corporate Treasury Monitor - Analyzes cash positions, FX exposures, and debt schedules.
+  Generates daily treasury summary and alerts on liquidity risks or covenant breaches.
+
+labels:
+  category: treasury
+  priority: high
+
+inputs:
+  - id: risk_threshold
+    type: INT
+    defaults: 75
+    description: Risk score threshold for triggering alerts
+
+  - id: liquidity_min_days
+    type: INT
+    defaults: 30
+    description: Minimum liquidity runway in days
+
+tasks:
+  # Task 1: Load Cash Positions
+  - id: load_cash_positions
+    type: io.kestra.plugin.scripts.python.Script
+    description: Load and process cash position data
+    containerImage: python:3.11-slim
+    beforeCommands:
+      - pip install pandas
+    script: |
+      import pandas as pd
+      import json
+
+      # Read cash positions
+      df = pd.read_csv('/app/data/treasury/cash_positions.csv')
+
+      # Get latest positions
+      latest_date = df['date'].max()
+      latest_positions = df[df['date'] == latest_date]
+
+      # Calculate totals by currency
+      totals = latest_positions.groupby('currency').agg({
+          'balance': 'sum',
+          'available_balance': 'sum'
+      }).to_dict()
+
+      # Calculate total in USD (simplified - using rough rates)
+      fx_rates = {'USD': 1, 'EUR': 1.08, 'GBP': 1.27, 'JPY': 0.0067}
+      total_usd = 0
+      for _, row in latest_positions.iterrows():
+          rate = fx_rates.get(row['currency'], 1)
+          total_usd += row['balance'] * rate
+
+      summary = {
+          'as_of_date': latest_date,
+          'positions': latest_positions.to_dict('records'),
+          'totals_by_currency': totals,
+          'total_usd_equivalent': round(total_usd, 2),
+          'account_count': len(latest_positions)
+      }
+
+      print(json.dumps(summary, indent=2))
+    outputFiles:
+      - "*.json"
+
+  # Task 2: Load FX Exposures
+  - id: load_fx_exposures
+    type: io.kestra.plugin.scripts.python.Script
+    description: Load FX rates and exposure data
+    containerImage: python:3.11-slim
+    script: |
+      import json
+
+      with open('/app/data/treasury/fx_rates.json', 'r') as f:
+          fx_data = json.load(f)
+
+      # Analyze exposures
+      exposures = fx_data.get('exposures', {})
+      total_unhedged = sum(exp.get('unhedged_exposure', 0) for exp in exposures.values())
+
+      # Find currencies with low hedge ratios
+      low_hedge_alerts = []
+      for currency, exp in exposures.items():
+          if exp.get('hedge_ratio', 1) < 0.7:
+              low_hedge_alerts.append({
+                  'currency': currency,
+                  'hedge_ratio': exp.get('hedge_ratio'),
+                  'unhedged_exposure': exp.get('unhedged_exposure')
+              })
+
+      summary = {
+          'rates': fx_data.get('rates', {}),
+          'exposures': exposures,
+          'total_unhedged_exposure': total_unhedged,
+          'low_hedge_alerts': low_hedge_alerts
+      }
+
+      print(json.dumps(summary, indent=2))
+
+  # Task 3: Load Debt Schedule
+  - id: load_debt_schedule
+    type: io.kestra.plugin.scripts.python.Script
+    description: Load and analyze debt obligations
+    containerImage: python:3.11-slim
+    beforeCommands:
+      - pip install pandas
+    script: |
+      import pandas as pd
+      import json
+      from datetime import datetime, timedelta
+
+      df = pd.read_csv('/app/data/treasury/debt_schedule.csv')
+
+      # Find upcoming payments (next 30 days)
+      today = datetime.now()
+      df['next_payment_date'] = pd.to_datetime(df['next_payment_date'])
+
+      upcoming = df[df['next_payment_date'] <= today + timedelta(days=30)]
+      total_upcoming_payments = upcoming['payment_amount'].sum()
+
+      # Find covenant issues
+      covenant_issues = df[df['covenant_status'] != 'COMPLIANT'].to_dict('records')
+
+      # Total debt outstanding
+      total_debt = df['principal'].sum()
+      avg_rate = (df['principal'] * df['interest_rate']).sum() / total_debt
+
+      summary = {
+          'total_debt_outstanding': round(total_debt, 2),
+          'weighted_avg_rate': round(avg_rate, 2),
+          'upcoming_payments_30d': round(total_upcoming_payments, 2),
+          'upcoming_payment_count': len(upcoming),
+          'covenant_issues': covenant_issues,
+          'all_obligations': df.to_dict('records')
+      }
+
+      print(json.dumps(summary, default=str, indent=2))
+
+  # Task 4: AI Summarization with Ollama
+  - id: summarize_treasury
+    type: io.kestra.plugin.scripts.python.Script
+    description: Generate AI summary of treasury position
+    containerImage: python:3.11-slim
+    beforeCommands:
+      - pip install requests
+    script: |
+      import requests
+      import json
+
+      # Gather all data from previous tasks (simulated - in real flow use outputs)
+      # For demo, re-read the data
+      import os
+
+      # Read data files
+      with open('/app/data/treasury/fx_rates.json', 'r') as f:
+          fx_data = json.load(f)
+
+      # Build context for LLM
+      context = f"""
+      TREASURY DATA AS OF 2024-12-11:
+
+      CASH POSITIONS:
+      - Total USD Equivalent: ~$12.5M across 8 accounts
+      - Primary accounts: JPMorgan Chase (USD), Deutsche Bank (EUR), Barclays (GBP)
+      - Regional distribution: North America (65%), Europe (25%), Asia Pacific (10%)
+
+      FX EXPOSURES:
+      - EUR: Net position €1.85M, Hedge ratio 65% (BELOW TARGET 70%)
+      - GBP: Net position £980K, Hedge ratio 82% (OK)
+      - JPY: Net position ¥125M, Hedge ratio 80% (OK)
+      - Total unhedged exposure: ~$1.5M
+
+      DEBT OBLIGATIONS:
+      - Total debt: $22M across 6 facilities
+      - Weighted avg rate: 6.2%
+      - Upcoming payments (30 days): $346,250
+      - COVENANT ISSUES DETECTED:
+        * DEBT004 (Equipment Loan): WARNING status
+        * DEBT006 (Credit Line): BREACH status - CRITICAL
+
+      RISK FACTORS:
+      - EUR hedge ratio below target
+      - Covenant breach on credit line requires immediate attention
+      - JPY volatility increased 0.98% in 24h
+      """
+
+      prompt = f"""You are a senior treasury analyst. Analyze the following treasury data and provide:
+      1. Executive Summary (2-3 sentences)
+      2. Key Risks (bullet points)
+      3. Recommended Actions (prioritized)
+      4. Risk Score (0-100, where 100 is highest risk)
+
+      {context}
+
+      Provide a concise, actionable analysis suitable for CFO review."""
+
+      # Call Ollama API
+      try:
+          response = requests.post(
+              'http://ollama:11434/api/generate',
+              json={
+                  'model': 'llama3.2:3b',
+                  'prompt': prompt,
+                  'stream': False,
+                  'options': {
+                      'temperature': 0.3,
+                      'num_predict': 1000
+                  }
+              },
+              timeout=120
+          )
+
+          if response.status_code == 200:
+              result = response.json()
+              summary = result.get('response', 'No response generated')
+          else:
+              summary = f"Error calling Ollama: {response.status_code}"
+      except Exception as e:
+          summary = f"Error: {str(e)}. Using fallback summary."
+          summary += """
+
+          FALLBACK TREASURY SUMMARY:
+          - Overall Position: Stable with adequate liquidity
+          - CRITICAL: Covenant breach on DEBT006 requires immediate action
+          - EUR hedge ratio at 65% - recommend increasing hedges
+          - Risk Score: 72/100 (Elevated due to covenant issues)
+          """
+
+      output = {
+          'summary': summary,
+          'risk_score': 72,
+          'alerts': [
+              {'type': 'COVENANT_BREACH', 'severity': 'CRITICAL', 'item': 'DEBT006'},
+              {'type': 'HEDGE_RATIO_LOW', 'severity': 'WARNING', 'currency': 'EUR'}
+          ],
+          'generated_at': '2024-12-11T16:00:00Z'
+      }
+
+      print(json.dumps(output, indent=2))
+
+  # Task 5: Check if alerts needed
+  - id: evaluate_alerts
+    type: io.kestra.plugin.scripts.python.Script
+    description: Determine if alerts should be triggered
+    containerImage: python:3.11-slim
+    script: |
+      import json
+
+      # In real implementation, get from previous task outputs
+      risk_score = 72
+      threshold = {{ inputs.risk_threshold }}
+
+      alerts_needed = risk_score >= threshold
+
+      alert_details = {
+          'should_alert': alerts_needed,
+          'risk_score': risk_score,
+          'threshold': threshold,
+          'alert_type': 'treasury_risk' if alerts_needed else None,
+          'priority': 'HIGH' if risk_score >= 80 else 'MEDIUM' if risk_score >= 60 else 'LOW'
+      }
+
+      print(json.dumps(alert_details, indent=2))
+
+outputs:
+  - id: treasury_summary
+    type: STRING
+    value: "{{ outputs.summarize_treasury.vars.summary }}"
+
+  - id: risk_score
+    type: INT
+    value: "{{ outputs.evaluate_alerts.vars.risk_score }}"
+
+  - id: alerts_triggered
+    type: BOOLEAN
+    value: "{{ outputs.evaluate_alerts.vars.should_alert }}"
+
+triggers:
+  # Run daily at 6 AM
+  - id: daily_schedule
+    type: io.kestra.plugin.core.trigger.Schedule
+    cron: "0 6 * * *"
