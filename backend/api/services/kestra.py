@@ -1,8 +1,8 @@
 import httpx
 from typing import Optional, Dict, Any
 from datetime import datetime
-from ..config import settings
-from ..models.schemas import (
+from config import settings
+from models.schemas import (
     WorkflowTriggerResponse,
     ExecutionStatus,
     ExecutionState,
@@ -14,6 +14,7 @@ class KestraService:
         self.base_url = settings.kestra_host
         self.namespace = settings.kestra_namespace
         self.flow_id = settings.kestra_flow_id
+        self.webhook_key = "finance-orchestrator-trigger"
 
     async def trigger_workflow(
         self,
@@ -21,13 +22,14 @@ class KestraService:
         risk_threshold: int = 70,
         send_notifications: bool = True,
     ) -> WorkflowTriggerResponse:
-        """Trigger the main orchestrator workflow."""
-        url = f"{self.base_url}/api/v1/executions/{self.namespace}/{self.flow_id}"
+        """Trigger the main orchestrator workflow via webhook."""
+        # Use webhook endpoint which doesn't require authentication
+        url = f"{self.base_url}/api/v1/executions/webhook/{self.namespace}/{self.flow_id}/{self.webhook_key}"
 
         payload = {
             "run_mode": run_mode,
             "risk_threshold": risk_threshold,
-            "send_notifications": send_notifications,
+            "send_notifications": str(send_notifications).lower(),
         }
 
         async with httpx.AsyncClient(timeout=30.0) as client:

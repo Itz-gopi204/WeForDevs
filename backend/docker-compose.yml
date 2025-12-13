@@ -55,6 +55,10 @@ services:
           server:
             basicAuth:
               enabled: false
+            accessLog:
+              enabled: true
+          security:
+            enabled: false
           repository:
             type: postgres
           storage:
@@ -67,6 +71,9 @@ services:
             tmpDir:
               path: /tmp/kestra-wd/tmp
           url: http://localhost:8080/
+        micronaut:
+          security:
+            enabled: false
     ports:
       - "8080:8080"
       - "8081:8081"

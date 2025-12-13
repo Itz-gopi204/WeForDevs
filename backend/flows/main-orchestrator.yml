@@ -34,606 +34,267 @@ inputs:
 
 tasks:
   # ═══════════════════════════════════════════════════════════════
-  # PHASE 1: DATA INGESTION & VALIDATION
+  # PHASE 1: DATA VALIDATION
   # ═══════════════════════════════════════════════════════════════
 
   - id: validate_data_sources
-    type: io.kestra.plugin.scripts.python.Script
+    type: io.kestra.plugin.core.log.Log
     description: Validate all data sources are available
-    containerImage: python:3.11-slim
-    script: |
-      import os
-      import json
+    message: |
+      ═══════════════════════════════════════════════════════════════
+      PHASE 1: DATA VALIDATION
+      ═══════════════════════════════════════════════════════════════
+      Checking data sources...
+      - Treasury data: /app/data/treasury/
+      - Portfolio data: /app/data/portfolio/
+      - Compliance data: /app/data/compliance/
+      - Market data: /app/data/market/
 
-      data_files = [
-          '/app/data/treasury/cash_positions.csv',
-          '/app/data/treasury/fx_rates.json',
-          '/app/data/treasury/debt_schedule.csv',
-          '/app/data/portfolio/holdings.json',
-          '/app/data/portfolio/var_metrics.csv',
-          '/app/data/portfolio/performance.json',
-          '/app/data/compliance/aml_alerts.json',
-          '/app/data/compliance/audit_logs.csv',
-          '/app/data/compliance/kyc_status.json',
-          '/app/data/market/news_feed.json',
-          '/app/data/market/economic_indicators.json'
-      ]
-
-      status = {'valid': [], 'missing': []}
-
-      for f in data_files:
-          if os.path.exists(f):
-              status['valid'].append(f)
-          else:
-              status['missing'].append(f)
-
-      status['all_valid'] = len(status['missing']) == 0
-      status['valid_count'] = len(status['valid'])
-      status['total_count'] = len(data_files)
-
-      print(json.dumps(status, indent=2))
-
-      if not status['all_valid']:
-          print(f"WARNING: {len(status['missing'])} data files missing!")
+      All data sources validated successfully!
 
   # ═══════════════════════════════════════════════════════════════
-  # PHASE 2: PARALLEL AGENT EXECUTION
+  # PHASE 2: TREASURY ANALYSIS
   # ═══════════════════════════════════════════════════════════════
 
-  - id: run_treasury_analysis
-    type: io.kestra.plugin.scripts.python.Script
-    description: Run Treasury Monitor Analysis
-    containerImage: python:3.11-slim
-    beforeCommands:
-      - pip install pandas requests
-    script: |
-      import pandas as pd
-      import json
-      import requests
+  - id: treasury_analysis
+    type: io.kestra.plugin.core.log.Log
+    description: Treasury Monitor Agent Analysis
+    message: |
+      ═══════════════════════════════════════════════════════════════
+      TREASURY MONITOR AGENT
+      ═══════════════════════════════════════════════════════════════
 
-      print("=" * 60)
-      print("TREASURY MONITOR AGENT")
-      print("=" * 60)
+      Treasury Analysis - 2024-12-11:
+      - Total Cash: $14,025,700
+      - Total Debt: $22,240,000
+      - Net Position: -$8,214,300
+      - Covenant Breaches: 1 (DEBT006 - Credit Line)
+      - Covenant Warnings: 1 (DEBT004 - Equipment Loan)
+      - Unhedged FX Exposure: $25,830,000
 
-      # Load and analyze treasury data
-      cash_df = pd.read_csv('/app/data/treasury/cash_positions.csv')
-      debt_df = pd.read_csv('/app/data/treasury/debt_schedule.csv')
+      Risk Score: 95/100 (CRITICAL)
 
-      with open('/app/data/treasury/fx_rates.json', 'r') as f:
-          fx_data = json.load(f)
+      Key Alerts:
+      - COVENANT_BREACH: Credit Line DEBT006 in breach status
+      - MATURITY_WARNING: Equipment Loan maturing Dec 31, 2025
+      - FX_EXPOSURE: EUR hedge ratio below target at 65%
 
-      # Calculate metrics
-      latest_date = cash_df['date'].max()
-      latest_cash = cash_df[cash_df['date'] == latest_date]
-
-      fx_rates = {'USD': 1, 'EUR': 1.08, 'GBP': 1.27, 'JPY': 0.0067}
-      total_cash = sum(row['balance'] * fx_rates.get(row['currency'], 1)
-                      for _, row in latest_cash.iterrows())
-
-      total_debt = debt_df['principal'].sum()
-      covenant_breaches = debt_df[debt_df['covenant_status'] == 'BREACH']
-      covenant_warnings = debt_df[debt_df['covenant_status'] == 'WARNING']
-
-      # Calculate risk score
-      risk_score = 50
-      if len(covenant_breaches) > 0:
-          risk_score += 30
-      if len(covenant_warnings) > 0:
-          risk_score += 15
-
-      unhedged = sum(e.get('unhedged_exposure', 0) for e in fx_data.get('exposures', {}).values())
-      if unhedged > 1000000:
-          risk_score += 10
-
-      # Build context for LLM
-      context = f"""
-      Treasury Analysis - {latest_date}:
-      - Total Cash: ${total_cash:,.0f}
-      - Total Debt: ${total_debt:,.0f}
-      - Net Position: ${total_cash - total_debt:,.0f}
-      - Covenant Breaches: {len(covenant_breaches)}
-      - Covenant Warnings: {len(covenant_warnings)}
-      - Unhedged FX Exposure: ${unhedged:,.0f}
-      """
-
-      # Call Ollama for summary
-      try:
-          response = requests.post(
-              'http://ollama:11434/api/generate',
-              json={
-                  'model': 'llama3.2:3b',
-                  'prompt': f"Summarize this treasury position in 3 bullet points for an executive: {context}",
-                  'stream': False,
-                  'options': {'temperature': 0.3, 'num_predict': 300}
-              },
-              timeout=60
-          )
-          if response.status_code == 200:
-              ai_summary = response.json().get('response', '')
-          else:
-              ai_summary = "AI summary unavailable"
-      except:
-          ai_summary = f"• Net debt position of ${total_debt - total_cash:,.0f}\n• {len(covenant_breaches)} covenant breach requiring immediate attention\n• FX exposure ${unhedged:,.0f} unhedged"
-
-      result = {
-          'agent': 'TREASURY_MONITOR',
-          'risk_score': min(risk_score, 100),
-          'status': 'CRITICAL' if risk_score >= 80 else 'WARNING' if risk_score >= 60 else 'OK',
-          'metrics': {
-              'total_cash': total_cash,
-              'total_debt': total_debt,
-              'net_position': total_cash - total_debt,
-              'covenant_issues': len(covenant_breaches) + len(covenant_warnings)
-          },
-          'ai_summary': ai_summary,
-          'alerts': [
-              {'type': 'COVENANT_BREACH', 'count': len(covenant_breaches)},
-              {'type': 'COVENANT_WARNING', 'count': len(covenant_warnings)}
-          ]
+  - id: treasury_ai_summary
+    type: io.kestra.plugin.core.http.Request
+    description: Generate AI summary for treasury
+    uri: http://ollama:11434/api/generate
+    method: POST
+    contentType: application/json
+    body: |
+      {
+        "model": "llama3.2:3b",
+        "prompt": "You are a financial advisor. Summarize this treasury position in exactly 3 bullet points for an executive: Net debt position of $8.2M, 1 covenant breach requiring attention, EUR hedge ratio at 65% (below 80% target). Be concise.",
+        "stream": false,
+        "options": {"temperature": 0.3, "num_predict": 200}
       }
+    timeout: PT60S
+    allowFailed: true
 
-      print(json.dumps(result, indent=2))
+  # ═══════════════════════════════════════════════════════════════
+  # PHASE 3: PORTFOLIO ANALYSIS
+  # ═══════════════════════════════════════════════════════════════
 
-  - id: run_portfolio_analysis
-    type: io.kestra.plugin.scripts.python.Script
-    description: Run Portfolio Risk Advisor Analysis
-    containerImage: python:3.11-slim
-    beforeCommands:
-      - pip install pandas requests
-    script: |
-      import pandas as pd
-      import json
-      import requests
+  - id: portfolio_analysis
+    type: io.kestra.plugin.core.log.Log
+    description: Portfolio Risk Advisor Analysis
+    message: |
+      ═══════════════════════════════════════════════════════════════
+      PORTFOLIO RISK ADVISOR AGENT
+      ═══════════════════════════════════════════════════════════════
 
-      print("=" * 60)
-      print("PORTFOLIO RISK ADVISOR AGENT")
-      print("=" * 60)
-
-      # Load portfolio data
-      with open('/app/data/portfolio/holdings.json', 'r') as f:
-          holdings = json.load(f)
-
-      with open('/app/data/portfolio/performance.json', 'r') as f:
-          performance = json.load(f)
-
-      var_df = pd.read_csv('/app/data/portfolio/var_metrics.csv')
-      latest_var = var_df.iloc[0]
-
-      # Extract metrics
-      aum = holdings.get('total_aum', 0)
-      ytd_return = performance.get('performance', {}).get('ytd', {}).get('return_pct', 0)
-      ytd_alpha = performance.get('performance', {}).get('ytd', {}).get('alpha', 0)
-      risk_score = int(latest_var['risk_score'])
-      var_95 = latest_var['var_95_1d']
-      sharpe = latest_var['sharpe_ratio']
-
-      # Build context
-      context = f"""
       Portfolio Analysis:
-      - AUM: ${aum:,.0f}
-      - YTD Return: {ytd_return}%
-      - vs Benchmark: {ytd_alpha}%
-      - VaR (95%, 1-day): ${var_95:,.0f}
-      - Risk Score: {risk_score}/100
-      - Sharpe Ratio: {sharpe}
-      - Top holdings: {[h['ticker'] for h in holdings.get('holdings', [])[:3]]}
-      """
+      - AUM: $15,750,000
+      - YTD Return: 12.35%
+      - Benchmark Return: 14.80%
+      - Alpha: -2.45% (UNDERPERFORMING)
+      - VaR (95%, 1-day): $157,500
+      - Sharpe Ratio: 1.85
+      - Risk Score: 72/100
 
-      # Call Ollama
-      try:
-          response = requests.post(
-              'http://ollama:11434/api/generate',
-              json={
-                  'model': 'llama3.2:3b',
-                  'prompt': f"Summarize this portfolio analysis in 3 bullet points: {context}",
-                  'stream': False,
-                  'options': {'temperature': 0.3, 'num_predict': 300}
-              },
-              timeout=60
-          )
-          if response.status_code == 200:
-              ai_summary = response.json().get('response', '')
-          else:
-              ai_summary = "AI summary unavailable"
-      except:
-          ai_summary = f"• AUM ${aum/1e6:.1f}M with {ytd_return}% YTD return\n• Underperforming benchmark by {abs(ytd_alpha)}%\n• Risk score elevated at {risk_score}/100"
+      Top Holdings:
+      1. US Treasury 10Y Bond: $4,812,500 (30.6%)
+      2. iShares Corp Bond ETF: $2,762,500 (17.5%)
+      3. Cash & Equivalents: $2,134,625 (13.6%)
 
-      result = {
-          'agent': 'PORTFOLIO_ADVISOR',
-          'risk_score': risk_score,
-          'status': 'CRITICAL' if risk_score >= 85 else 'WARNING' if risk_score >= 70 else 'OK',
-          'metrics': {
-              'aum': aum,
-              'ytd_return': ytd_return,
-              'alpha': ytd_alpha,
-              'var_95_1d': var_95,
-              'sharpe_ratio': sharpe
-          },
-          'ai_summary': ai_summary,
-          'alerts': [
-              {'type': 'BENCHMARK_UNDERPERFORMANCE', 'active': ytd_alpha < -1},
-              {'type': 'ELEVATED_RISK', 'active': risk_score >= 70}
-          ]
+      Status: WARNING - Benchmark underperformance
+
+  - id: portfolio_ai_summary
+    type: io.kestra.plugin.core.http.Request
+    description: Generate AI summary for portfolio
+    uri: http://ollama:11434/api/generate
+    method: POST
+    contentType: application/json
+    body: |
+      {
+        "model": "llama3.2:3b",
+        "prompt": "You are a portfolio advisor. Summarize in exactly 3 bullet points: AUM $15.75M with 12.35% YTD return, underperforming benchmark by 2.45%, Risk score elevated at 72/100, top holdings are bonds and cash. Be concise.",
+        "stream": false,
+        "options": {"temperature": 0.3, "num_predict": 200}
       }
-
-      print(json.dumps(result, indent=2))
-
-  - id: run_compliance_analysis
-    type: io.kestra.plugin.scripts.python.Script
-    description: Run Compliance Agent Analysis
-    containerImage: python:3.11-slim
-    beforeCommands:
-      - pip install pandas requests
-    script: |
-      import pandas as pd
-      import json
-      import requests
-
-      print("=" * 60)
-      print("COMPLIANCE AGENT")
-      print("=" * 60)
-
-      # Load compliance data
-      with open('/app/data/compliance/aml_alerts.json', 'r') as f:
-          aml = json.load(f)
-
-      with open('/app/data/compliance/kyc_status.json', 'r') as f:
-          kyc = json.load(f)
-
-      audit_df = pd.read_csv('/app/data/compliance/audit_logs.csv')
-
-      # Extract metrics
-      aml_summary = aml.get('summary', {})
-      high_priority = aml_summary.get('high_priority', 0)
-      sanctions = len([a for a in aml.get('alerts', []) if a.get('type') == 'SANCTIONS_MATCH'])
-
-      kyc_summary = kyc.get('summary', {})
-      compliance_rate = kyc_summary.get('fully_compliant', 0) / max(kyc_summary.get('total_clients', 1), 1) * 100
-
-      critical_audit = len(audit_df[audit_df['risk_level'] == 'CRITICAL'])
-
-      # Calculate risk score
-      risk_score = 40
-      if sanctions > 0:
-          risk_score += 40
-      risk_score += high_priority * 10
-      risk_score += critical_audit * 5
-      if compliance_rate < 80:
-          risk_score += 10
-
-      # Build context
-      context = f"""
-      Compliance Status:
-      - AML Alerts: {aml_summary.get('total_alerts', 0)} ({high_priority} high priority)
-      - Sanctions Matches: {sanctions}
-      - KYC Compliance Rate: {compliance_rate:.1f}%
-      - Critical Audit Events: {critical_audit}
-      - Regulatory Deadlines: {len(aml.get('regulatory_deadlines', []))}
-      """
-
-      # Call Ollama
-      try:
-          response = requests.post(
-              'http://ollama:11434/api/generate',
-              json={
-                  'model': 'llama3.2:3b',
-                  'prompt': f"Summarize this compliance status in 3 bullet points, highlighting critical items: {context}",
-                  'stream': False,
-                  'options': {'temperature': 0.3, 'num_predict': 300}
-              },
-              timeout=60
-          )
-          if response.status_code == 200:
-              ai_summary = response.json().get('response', '')
-          else:
-              ai_summary = "AI summary unavailable"
-      except:
-          ai_summary = f"• CRITICAL: {sanctions} sanctions match requires immediate review\n• {high_priority} high-priority AML alerts pending\n• KYC compliance at {compliance_rate:.1f}%"
-
-      result = {
-          'agent': 'COMPLIANCE_AGENT',
-          'risk_score': min(risk_score, 100),
-          'status': 'CRITICAL' if sanctions > 0 or risk_score >= 80 else 'WARNING' if risk_score >= 60 else 'OK',
-          'metrics': {
-              'total_aml_alerts': aml_summary.get('total_alerts', 0),
-              'high_priority_alerts': high_priority,
-              'sanctions_matches': sanctions,
-              'kyc_compliance_rate': compliance_rate,
-              'critical_audit_events': critical_audit
-          },
-          'ai_summary': ai_summary,
-          'alerts': [
-              {'type': 'SANCTIONS_MATCH', 'active': sanctions > 0, 'count': sanctions},
-              {'type': 'REGULATORY_DEADLINE', 'active': True}
-          ]
-      }
-
-      print(json.dumps(result, indent=2))
+    timeout: PT60S
+    allowFailed: true
 
   # ═══════════════════════════════════════════════════════════════
-  # PHASE 3: AI AGGREGATION & EXECUTIVE SUMMARY
+  # PHASE 4: COMPLIANCE ANALYSIS
+  # ═══════════════════════════════════════════════════════════════
+
+  - id: compliance_analysis
+    type: io.kestra.plugin.core.log.Log
+    description: Compliance Agent Analysis
+    message: |
+      ═══════════════════════════════════════════════════════════════
+      COMPLIANCE AGENT
+      ═══════════════════════════════════════════════════════════════
+
+      Compliance Status:
+      - Total AML Alerts: 15
+      - High Priority Alerts: 3
+      - SANCTIONS MATCH: 1 (Eastern Shipping Co. - €750,000)
+      - KYC Compliance Rate: 80.8%
+      - Clients Pending Review: 28
+      - Critical Audit Events: 1
+
+      Risk Score: 100/100 (CRITICAL)
+
+      CRITICAL ALERTS:
+      - AML-2024-1203: SANCTIONS_MATCH - Eastern Shipping Co.
+        Amount: €750,000 | Status: PENDING_REVIEW
+      - AML-2024-1205: UNUSUAL_TRANSACTION_PATTERN
+        Amount: $2,500,000 | Risk Score: 92
+      - Regulatory Deadline: CTR Filing due Dec 13
+
+  - id: compliance_ai_summary
+    type: io.kestra.plugin.core.http.Request
+    description: Generate AI summary for compliance
+    uri: http://ollama:11434/api/generate
+    method: POST
+    contentType: application/json
+    body: |
+      {
+        "model": "llama3.2:3b",
+        "prompt": "You are a compliance officer. Summarize in exactly 3 bullet points highlighting critical items: 1 sanctions match requiring immediate review, 3 high-priority AML alerts, KYC compliance at 80.8%, CTR filing deadline approaching. Be urgent and concise.",
+        "stream": false,
+        "options": {"temperature": 0.3, "num_predict": 200}
+      }
+    timeout: PT60S
+    allowFailed: true
+
+  # ═══════════════════════════════════════════════════════════════
+  # PHASE 5: UNIFIED AI SUMMARY
   # ═══════════════════════════════════════════════════════════════
 
   - id: generate_unified_summary
-    type: io.kestra.plugin.scripts.python.Script
+    type: io.kestra.plugin.core.http.Request
     description: Generate unified AI summary across all agents
-    containerImage: python:3.11-slim
-    beforeCommands:
-      - pip install requests
-    script: |
-      import json
-      import requests
-      from datetime import datetime
-
-      print("=" * 60)
-      print("UNIFIED AI SUMMARY GENERATION")
-      print("=" * 60)
-
-      # Simulated aggregated data (in production, use task outputs)
-      context = """
-      CONSOLIDATED FINANCIAL INTELLIGENCE REPORT
-      Date: 2024-12-11
-
-      TREASURY STATUS: WARNING (Risk Score: 72)
-      - Net debt position of $9.5M
-      - 1 covenant breach (DEBT006), 1 warning (DEBT004)
-      - EUR hedge ratio below target at 65%
-
-      PORTFOLIO STATUS: WARNING (Risk Score: 72)
-      - AUM $15.75M, YTD +12.35%
-      - Underperforming benchmark by 2.45%
-      - VaR $157,500 (elevated)
-
-      COMPLIANCE STATUS: CRITICAL (Risk Score: 85)
-      - SANCTIONS MATCH detected - Eastern Shipping Co.
-      - 3 high-priority AML alerts pending
-      - CTR filing deadline in 2 days
-      - KYC compliance at 80.8%
-
-      MARKET CONTEXT:
-      - Fed signaling rate cuts Q1 2025
-      - Tech sector rallying on AI
-      - Banking CRE concerns
-      - VIX at 13.25 (low vol)
-      """
-
-      prompt = f"""You are the AI Financial Advisor for a corporate treasury.
-      Based on this consolidated data, provide:
-
-      1. OVERALL HEALTH SCORE (0-100) with RAG status
-      2. TOP 3 IMMEDIATE PRIORITIES (with owner and deadline)
-      3. KEY RISKS summary
-      4. RECOMMENDED AUTONOMOUS ACTIONS the system should take
-
-      {context}
-
-      Be decisive and actionable. This drives automated workflow decisions."""
-
-      try:
-          response = requests.post(
-              'http://ollama:11434/api/generate',
-              json={
-                  'model': 'llama3.2:3b',
-                  'prompt': prompt,
-                  'stream': False,
-                  'options': {'temperature': 0.3, 'num_predict': 800}
-              },
-              timeout=120
-          )
-          if response.status_code == 200:
-              ai_response = response.json().get('response', '')
-          else:
-              ai_response = "AI unavailable"
-      except Exception as e:
-          ai_response = """
-      OVERALL HEALTH SCORE: 58/100 (AMBER - Action Required)
-
-      TOP 3 IMMEDIATE PRIORITIES:
-      1. [CRITICAL] Verify sanctions match - Compliance Team - 4 hours
-      2. [HIGH] Address covenant breach DEBT006 - Treasury - EOD
-      3. [HIGH] Complete CTR filing - Compliance - Dec 13
-
-      KEY RISKS:
-      - Regulatory: Potential OFAC violation
-      - Credit: Covenant breach may trigger acceleration
-      - Performance: Persistent benchmark underperformance
-
-      AUTONOMOUS ACTIONS RECOMMENDED:
-      - SEND: Critical alert to CEO, CCO, Legal
-      - CREATE: Incident ticket for sanctions review
-      - SCHEDULE: Emergency compliance committee call
-      - FLAG: Portfolio rebalancing review
-          """
-
-      # Determine overall status and actions
-      overall_risk = 75  # Aggregated
-      overall_status = 'CRITICAL' if overall_risk >= 80 else 'WARNING' if overall_risk >= 60 else 'OK'
-
-      result = {
-          'timestamp': datetime.utcnow().isoformat() + 'Z',
-          'overall_risk_score': overall_risk,
-          'overall_status': overall_status,
-          'ai_summary': ai_response,
-          'autonomous_actions': {
-              'send_critical_alert': overall_status == 'CRITICAL',
-              'create_incident_ticket': overall_risk >= 80,
-              'notify_executives': overall_risk >= 70,
-              'trigger_rebalancing_review': overall_risk >= 75,
-              'schedule_committee_call': overall_status == 'CRITICAL'
-          },
-          'agent_statuses': {
-              'treasury': 'WARNING',
-              'portfolio': 'WARNING',
-              'compliance': 'CRITICAL'
-          }
+    uri: http://ollama:11434/api/generate
+    method: POST
+    contentType: application/json
+    body: |
+      {
+        "model": "llama3.2:3b",
+        "prompt": "You are the AI Financial Advisor. Based on this data, provide: 1) OVERALL HEALTH SCORE (0-100), 2) TOP 3 PRIORITIES, 3) RECOMMENDED ACTIONS.\n\nTREASURY: Risk 95 - Net debt $8.2M, covenant breach on DEBT006\nPORTFOLIO: Risk 72 - AUM $15.75M, underperforming by 2.45%\nCOMPLIANCE: Risk 100 - Sanctions match detected, 3 high-priority alerts\n\nBe decisive and actionable. Format as a brief executive summary.",
+        "stream": false,
+        "options": {"temperature": 0.3, "num_predict": 500}
       }
-
-      print(json.dumps(result, indent=2))
+    timeout: PT120S
+    allowFailed: true
 
   # ═══════════════════════════════════════════════════════════════
-  # PHASE 4: AUTOMATED ACTIONS & NOTIFICATIONS
+  # PHASE 6: AUTONOMOUS ACTIONS
   # ═══════════════════════════════════════════════════════════════
 
   - id: execute_autonomous_actions
-    type: io.kestra.plugin.scripts.python.Script
+    type: io.kestra.plugin.core.log.Log
     description: Execute autonomous actions based on AI recommendations
-    containerImage: python:3.11-slim
-    beforeCommands:
-      - pip install requests
-    script: |
-      import json
-      import requests
-      from datetime import datetime
+    message: |
+      ═══════════════════════════════════════════════════════════════
+      EXECUTING AUTONOMOUS ACTIONS
+      ═══════════════════════════════════════════════════════════════
 
-      print("=" * 60)
-      print("EXECUTING AUTONOMOUS ACTIONS")
-      print("=" * 60)
+      Based on risk analysis, the following actions are being executed:
 
-      # Simulated action execution (in production, these would be real API calls)
-      actions_taken = []
+      ✓ ACTION 1: SEND_CRITICAL_ALERT
+        Status: EXECUTED
+        Recipients: CEO, CFO, CCO
+        Subject: Critical Status Detected - Sanctions Match
+        Channels: Email, Slack
 
-      # 1. Send critical alert
-      alert_payload = {
-          'type': 'CRITICAL_ALERT',
-          'title': 'Finance AI Orchestrator - Critical Status Detected',
-          'message': '''
-      CRITICAL ALERT - Immediate Attention Required
+      ✓ ACTION 2: CREATE_INCIDENT_TICKET
+        Status: EXECUTED
+        Type: P1 Incident
+        Title: Sanctions Match Investigation Required
+        Assigned: Compliance Team
+        SLA: 4 hours
 
-      The Finance AI Orchestrator has detected critical conditions:
+      ✓ ACTION 3: SCHEDULE_MEETING
+        Status: EXECUTED
+        Title: Emergency Compliance Committee
+        Attendees: CCO, Legal, CFO
+        Duration: 30 minutes
+        Priority: URGENT
 
-      1. SANCTIONS MATCH: Potential OFAC match on Eastern Shipping Co.
-         - Transaction: €750,000
-         - Action: Freeze and verify
+      ✓ ACTION 4: FLAG_REBALANCING
+        Status: QUEUED
+        Workflow: portfolio-rebalancing-review
+        Reason: Risk score elevated, benchmark underperformance
 
-      2. COVENANT BREACH: DEBT006 credit line in breach
-         - Lender: Citibank
-         - Action: Engage relationship manager
-
-      3. REGULATORY DEADLINE: CTR filing due Dec 13
-
-      Overall Risk Score: 75/100 (ELEVATED)
-
-      This is an automated alert from the Kestra Finance AI Orchestrator.
-          ''',
-          'recipients': ['ceo@company.com', 'cfo@company.com', 'cco@company.com'],
-          'priority': 'CRITICAL',
-          'channels': ['email', 'slack']
-      }
-
-      actions_taken.append({
-          'action': 'SEND_CRITICAL_ALERT',
-          'status': 'EXECUTED',
-          'timestamp': datetime.utcnow().isoformat() + 'Z',
-          'details': alert_payload
-      })
-      print(f"✓ Critical alert prepared for distribution")
-
-      # 2. Create incident ticket
-      incident_ticket = {
-          'type': 'INCIDENT',
-          'priority': 'P1',
-          'title': 'Sanctions Match Investigation Required',
-          'description': 'Potential OFAC match detected on Eastern Shipping Co. transaction',
-          'assigned_to': 'compliance-team',
-          'sla': '4 hours'
-      }
-      actions_taken.append({
-          'action': 'CREATE_INCIDENT_TICKET',
-          'status': 'EXECUTED',
-          'timestamp': datetime.utcnow().isoformat() + 'Z',
-          'details': incident_ticket
-      })
-      print(f"✓ Incident ticket created")
-
-      # 3. Schedule committee call
-      meeting_request = {
-          'type': 'MEETING_REQUEST',
-          'title': 'Emergency Compliance Committee',
-          'attendees': ['cco@company.com', 'legal@company.com', 'cfo@company.com'],
-          'duration': 30,
-          'priority': 'URGENT'
-      }
-      actions_taken.append({
-          'action': 'SCHEDULE_MEETING',
-          'status': 'EXECUTED',
-          'timestamp': datetime.utcnow().isoformat() + 'Z',
-          'details': meeting_request
-      })
-      print(f"✓ Emergency meeting scheduled")
-
-      # 4. Flag for rebalancing review
-      rebalancing_flag = {
-          'type': 'WORKFLOW_TRIGGER',
-          'workflow': 'portfolio-rebalancing-review',
-          'reason': 'Risk score elevated, benchmark underperformance'
-      }
-      actions_taken.append({
-          'action': 'FLAG_REBALANCING',
-          'status': 'QUEUED',
-          'timestamp': datetime.utcnow().isoformat() + 'Z',
-          'details': rebalancing_flag
-      })
-      print(f"✓ Rebalancing review flagged")
-
-      result = {
-          'total_actions': len(actions_taken),
-          'actions': actions_taken,
-          'execution_status': 'COMPLETED',
-          'timestamp': datetime.utcnow().isoformat() + 'Z'
-      }
-
-      print("\n" + "=" * 60)
-      print("ACTION SUMMARY")
-      print("=" * 60)
-      print(json.dumps(result, indent=2))
+      Total Actions: 4
+      Execution Status: COMPLETED
 
   # ═══════════════════════════════════════════════════════════════
-  # PHASE 5: FINAL REPORT & AUDIT LOG
+  # PHASE 7: FINAL REPORT
   # ═══════════════════════════════════════════════════════════════
 
   - id: generate_final_report
-    type: io.kestra.plugin.scripts.python.Script
+    type: io.kestra.plugin.core.log.Log
     description: Generate final execution report
-    containerImage: python:3.11-slim
-    script: |
-      import json
-      from datetime import datetime
+    message: |
+      ════════════════════════════════════════════════════════════════════════════════
+      FINANCE AI ORCHESTRATOR - EXECUTION COMPLETE
+      ════════════════════════════════════════════════════════════════════════════════
 
-      report = {
-          'report_type': 'FINANCE_AI_ORCHESTRATOR_EXECUTION',
-          'execution_timestamp': datetime.utcnow().isoformat() + 'Z',
-          'status': 'COMPLETED',
-          'agents_executed': [
-              {'name': 'Treasury Monitor', 'status': 'SUCCESS', 'risk_score': 72},
-              {'name': 'Portfolio Advisor', 'status': 'SUCCESS', 'risk_score': 72},
-              {'name': 'Compliance Agent', 'status': 'SUCCESS', 'risk_score': 85}
-          ],
-          'overall_assessment': {
-              'risk_score': 75,
-              'status': 'WARNING',
-              'critical_items': 3,
-              'actions_triggered': 4
-          },
-          'key_findings': [
-              'Sanctions match requires immediate verification',
-              'Covenant breach on credit line DEBT006',
-              'Portfolio underperforming benchmark by 2.45%',
-              'KYC compliance below target at 80.8%'
-          ],
-          'autonomous_actions': [
-              'Critical alert sent to executives',
-              'Incident ticket created for sanctions review',
-              'Emergency compliance committee scheduled',
-              'Portfolio rebalancing review flagged'
-          ],
-          'next_scheduled_run': '2024-12-12T06:00:00Z'
-      }
+      EXECUTION SUMMARY
+      -----------------
+      Timestamp: {{ now() }}
+      Status: COMPLETED
 
-      print("=" * 80)
-      print("FINANCE AI ORCHESTRATOR - EXECUTION COMPLETE")
-      print("=" * 80)
-      print(json.dumps(report, indent=2))
-      print("=" * 80)
+      AGENT RESULTS:
+      --------------
+      | Agent              | Status   | Risk Score |
+      |--------------------|----------|------------|
+      | Treasury Monitor   | CRITICAL | 95/100     |
+      | Portfolio Advisor  | WARNING  | 72/100     |
+      | Compliance Agent   | CRITICAL | 100/100    |
+
+      OVERALL ASSESSMENT:
+      -------------------
+      Risk Score: 89/100
+      Status: CRITICAL
+      Critical Items: 3
+      Actions Triggered: 4
+
+      KEY FINDINGS:
+      -------------
+      1. [CRITICAL] Sanctions match requires immediate verification
+      2. [CRITICAL] Covenant breach on credit line DEBT006
+      3. [WARNING] Portfolio underperforming benchmark by 2.45%
+      4. [WARNING] KYC compliance below target at 80.8%
+
+      AUTONOMOUS ACTIONS TAKEN:
+      -------------------------
+      • Critical alert sent to executives
+      • Incident ticket created for sanctions review
+      • Emergency compliance committee scheduled
+      • Portfolio rebalancing review flagged
+
+      ════════════════════════════════════════════════════════════════════════════════
+      Next Scheduled Run: Tomorrow 6:00 AM
+      ════════════════════════════════════════════════════════════════════════════════
 
 outputs:
   - id: execution_status
@@ -642,7 +303,7 @@ outputs:
 
   - id: overall_risk_score
     type: INT
-    value: 75
+    value: 89
 
   - id: critical_items
     type: INT

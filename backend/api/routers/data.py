@@ -1,12 +1,12 @@
 from fastapi import APIRouter
-from ..models.schemas import (
+from models.schemas import (
     TreasuryData,
     PortfolioData,
     ComplianceData,
     MarketData,
     DashboardSummary,
 )
-from ..services.data_loader import data_loader_service
+from services.data_loader import data_loader_service
 
 router = APIRouter(prefix="/data", tags=["Data"])
 

@@ -1,8 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-from .config import settings
-from .routers import workflows_router, data_router, health_router
+from config import settings
+from routers import workflows_router, data_router, health_router
 
 
 @asynccontextmanager
