@@ -1,2 +1,2 @@
-from .kestra import KestraService
-from .data_loader import DataLoaderService
+from services.kestra import KestraService
+from services.data_loader import DataLoaderService

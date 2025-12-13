@@ -1,9 +1,9 @@
 from fastapi import APIRouter
 from datetime import datetime
 import httpx
-from ..config import settings
-from ..models.schemas import HealthCheck
-from ..services.kestra import kestra_service
+from config import settings
+from models.schemas import HealthCheck
+from services.kestra import kestra_service
 
 router = APIRouter(prefix="/health", tags=["Health"])
 

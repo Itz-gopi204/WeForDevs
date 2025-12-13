@@ -3,8 +3,8 @@ import pandas as pd
 from pathlib import Path
 from typing import Dict, Any, List
 from datetime import datetime
-from ..config import settings
-from ..models.schemas import (
+from config import settings
+from models.schemas import (
     TreasuryData,
     PortfolioData,
     ComplianceData,
@@ -110,7 +110,7 @@ class DataLoaderService:
         var_df = self._read_csv(self.data_path / "portfolio" / "var_metrics.csv")
 
         # Get latest VAR metrics
-        latest_var = var_df.iloc[0] if not var_df.empty else {}
+        latest_var = var_df.iloc[0].to_dict() if not var_df.empty else {}
 
         # Build holdings list
         holdings = []

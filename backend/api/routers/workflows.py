@@ -1,11 +1,11 @@
 from fastapi import APIRouter, HTTPException
 from typing import Optional, List, Dict, Any
-from ..models.schemas import (
+from models.schemas import (
     WorkflowTriggerRequest,
     WorkflowTriggerResponse,
     ExecutionStatus,
 )
-from ..services.kestra import kestra_service
+from services.kestra import kestra_service
 
 router = APIRouter(prefix="/workflows", tags=["Workflows"])
 

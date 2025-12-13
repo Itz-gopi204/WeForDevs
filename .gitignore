@@ -1,0 +1,56 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+.pycache/
+
+# Environment
+.env
+.env.local
+.env.*.local
+*.local
+
+# Build outputs
+dist/
+dist-ssr/
+build/
+*.egg-info/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Docker volumes (local data)
+backend/data/
+!backend/data/treasury/
+!backend/data/portfolio/
+!backend/data/compliance/
+!backend/data/market/
+
+# IDE
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Python
+*.py[cod]
+*$py.class
+.Python
+venv/
+ENV/
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
