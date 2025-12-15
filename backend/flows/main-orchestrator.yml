@@ -92,7 +92,7 @@ tasks:
         "stream": false,
         "options": {"temperature": 0.3, "num_predict": 200}
       }
-    timeout: PT60S
+    timeout: PT300S
     allowFailed: true
 
   # ═══════════════════════════════════════════════════════════════
@@ -136,7 +136,7 @@ tasks:
         "stream": false,
         "options": {"temperature": 0.3, "num_predict": 200}
       }
-    timeout: PT60S
+    timeout: PT300S
     allowFailed: true
 
   # ═══════════════════════════════════════════════════════════════
@@ -181,7 +181,7 @@ tasks:
         "stream": false,
         "options": {"temperature": 0.3, "num_predict": 200}
       }
-    timeout: PT60S
+    timeout: PT300S
     allowFailed: true
 
   # ═══════════════════════════════════════════════════════════════
@@ -201,7 +201,7 @@ tasks:
         "stream": false,
         "options": {"temperature": 0.3, "num_predict": 500}
       }
-    timeout: PT120S
+    timeout: PT300S
     allowFailed: true
 
   # ═══════════════════════════════════════════════════════════════
