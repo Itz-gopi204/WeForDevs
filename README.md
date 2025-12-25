@@ -1,6 +1,5 @@
 # Finance AI Orchestrator
 
-> **AssembleHack25 Hackathon Submission**
 >
 > AI-Powered Financial Data Summarization & Automation Platform
 
