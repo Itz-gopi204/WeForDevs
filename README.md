@@ -1644,5 +1644,3 @@ MIT License - See LICENSE file for details
 ---
 
 **Built for AssembleHack25 Hackathon**
-
-*Transforming financial data into executive intelligence with AI*
