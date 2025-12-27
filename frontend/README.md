@@ -217,6 +217,7 @@ npm run preview
 npm run lint
 ```
 
+
 ### Adding New Features
 
 1. **New View**: Add to `navItems` array and create corresponding render section
